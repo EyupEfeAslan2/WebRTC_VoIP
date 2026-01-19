@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="description" content="WebRTC VoIP Prototype Application">
+    <title>WebRTC VoIP | Turkcell Staj Projesi</title>
+    <link rel="stylesheet" href="style.css?v=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-content container">
+            <div class="brand">
+                <span class="logo-icon">📡</span>
+                <div class="brand-text">
+                    <h1>VoIP Prototype</h1>
+                    <span class="subtitle">Real-Time Communication Unit</span>
+                </div>
+            </div>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Sunucu Bağlantısı Bekleniyor...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-main container">
+        
+        <div class="control-grid">
+            
+            <section class="card viz-card">
+                <div class="card-header">
+                    <h2>Ses Analizi</h2>
+                    <span class="badge">Live</span>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="audioCanvas"></canvas>
+                </div>
+                <div class="audio-level-wrapper">
+                    <label>Gain Level</label>
+                    <div class="level-bar">
+                        <div id="levelIndicator" class="level-fill"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card operations-card">
+                <div class="card-header">
+                    <h2>Bağlantı Kontrolü</h2>
+                </div>
+                
+                <div class="input-group">
+                    <label for="userId">Kimlik (Local ID)</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="userId" placeholder="Otomatik veya Manuel Gir" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="audio-actions">
+                    <button id="initAudioBtn" class="btn btn-primary">
+                        <span class="icon">🎙️</span> Sistemi Başlat
+                    </button>
+                    <button id="muteBtn" class="btn btn-secondary" disabled>
+                        <span class="icon">🔇</span> Mute
+                    </button>
+                </div>
+
+                <hr class="divider">
+
+                <div class="input-group">
+                    <label for="peerId">Hedef Kimlik (Remote ID)</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="peerId" placeholder="Örn: user_123" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="call-actions">
+                    <button id="callBtn" class="btn btn-success" disabled>
+                        <span class="icon">📞</span> Bağlan
+                    </button>
+                    <button id="hangupBtn" class="btn btn-danger" disabled>
+                        <span class="icon">📴</span> Sonlandır
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <section class="card log-card">
+            <div class="card-header">
+                <h2>Sistem Logları</h2>
+                <button class="btn-xs" onclick="document.getElementById('logOutput').innerHTML=''">Temizle</button>
+            </div>
+            <div id="logOutput" class="terminal-view">
+                <div class="log-entry system">> Sistem hazır. Kullanıcı girişi bekleniyor...</div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer container">
+        <p>&copy; 2026 Turkcell VoIP Staj Projesi | WebRTC v1.0 </p>
+    </footer>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="script.js?v=1.0"></script>
+</body>
+</html>

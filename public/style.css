@@ -1,0 +1,290 @@
+/* --- Variables & Reset --- */
+:root {
+    --bg-color: #0f172a;       /* Dark Navy */
+    --surface-color: #1e293b;  /* Lighter Navy */
+    --primary-color: #3b82f6;  /* Bright Blue */
+    --success-color: #10b981;  /* Emerald Green */
+    --danger-color: #ef4444;   /* Red */
+    --text-main: #f8fafc;      /* Off-white */
+    --text-muted: #94a3b8;     /* Gray */
+    --border-color: #334155;
+    
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    line-height: 1.6;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Layout Utilities --- */
+.container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* --- Header --- */
+.app-header {
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo-icon {
+    font-size: 2rem;
+}
+
+.brand-text h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.brand-text .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: block;
+}
+
+/* --- Connection Status --- */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-muted); /* Default gray */
+    box-shadow: 0 0 5px var(--text-muted);
+}
+
+/* JS ile eklenecek sınıflar için stiller */
+.status-connected .status-dot { background-color: var(--success-color); box-shadow: 0 0 8px var(--success-color); }
+.status-disconnected .status-dot { background-color: var(--danger-color); }
+
+/* --- Main Layout (Grid) --- */
+.app-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr; /* Sol geniş, sağ dar */
+    gap: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .app-main {
+        grid-template-columns: 1fr;
+    }
+}
+
+.control-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* --- Cards --- */
+.card {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.card-header h2 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* --- Viz Card --- */
+.canvas-wrapper {
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+#audioCanvas {
+    width: 100%;
+    height: 120px;
+    display: block;
+}
+
+.level-bar {
+    height: 6px;
+    background: #334155;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.level-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+    transition: width 0.1s linear;
+}
+
+/* --- Inputs & Buttons --- */
+.input-group {
+    margin-bottom: 1rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus {
+    border-color: var(--primary-color);
+}
+
+.audio-actions, .call-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.btn {
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+.btn-primary { background-color: var(--primary-color); color: white; }
+.btn-primary:hover:not(:disabled) { background-color: #2563eb; }
+
+.btn-secondary { background-color: #475569; color: white; }
+.btn-secondary:hover:not(:disabled) { background-color: #64748b; }
+
+.btn-success { background-color: var(--success-color); color: white; }
+.btn-success:hover:not(:disabled) { background-color: #059669; }
+
+.btn-danger { background-color: var(--danger-color); color: white; }
+.btn-danger:hover:not(:disabled) { background-color: #dc2626; }
+
+.btn-xs {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+}
+
+.divider {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 1.5rem 0;
+}
+
+/* --- Log Terminal --- */
+.log-card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 150px);
+}
+
+.terminal-view {
+    flex: 1;
+    background-color: #000;
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: #4ade80; /* Matrix green text */
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+}
+
+.log-entry {
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 0.2rem;
+}
+
+/* --- Footer --- */
+.app-footer {
+    text-align: center;
+    padding: 1rem 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.tech-stack {
+    color: var(--primary-color);
+    font-weight: 500;
+}
