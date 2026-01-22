@@ -1,40 +1,36 @@
 /**
  * Main Application Script
- * WebRTC VoIP Prototype - Turkcell
- * * Bu dosya tüm modülleri koordine eder ve UI ile iletişim kurar
  */
 
 import { AudioManager } from './audio-manager.js';
 import { SignalingManager } from './signaling.js';
 
-// ============================================================================
-// Uygulama Durumu (State Management)
-// ============================================================================
+// Application State Management
 const AppState = {
     audioManager: null,
     signalingManager: null,
     peerConnection: null,
-    isInCall: false,
-    currentPeerId: null,
     
-    // ICE sunucuları (STUN - Google Public Servers)
+    // Room state
+    isInCall: false,
+    currentRoomId: null,
+    isInitiator: false, // Odayı kuran taraf mı?
+    
+    // ICE sunucuları (STUN)
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
-// ============================================================================
-// DOM Elementleri (Cache)
-// ============================================================================
+// DOM Elements Cache- Belge nesneleri önbelleği
 const DOM = {
     userId: null,
-    peerId: null,
+    roomId: null,
     initAudioBtn: null,
     muteBtn: null,
     callBtn: null,
     hangupBtn: null,
-    connectionStatus: null,
     statusDot: null,
     statusText: null,
     logOutput: null,
@@ -42,336 +38,387 @@ const DOM = {
     remoteAudio: null
 };
 
-// ============================================================================
-// Uygulama Başlatma
-// ============================================================================
+// Application Initialization
+
 document.addEventListener('DOMContentLoaded', () => {
     cacheDOMElements();
     initializeManagers();
     attachEventListeners();
-    log('Uygulama başlatıldı. Mikrofon izni için "Sistemi Başlat"a tıklayın.', 'info');
+    log('Sistem hazır. Mikrofonu başlatın.', 'info');
 });
 
-// ============================================================================
-// Başlatma Fonksiyonları
-// ============================================================================
-
+/**
+ * DOM elementlerini cache'e al
+ */
 function cacheDOMElements() {
     DOM.userId = document.getElementById('userId');
-    DOM.peerId = document.getElementById('peerId');
+    DOM.roomId = document.getElementById('peerId');
     DOM.initAudioBtn = document.getElementById('initAudioBtn');
     DOM.muteBtn = document.getElementById('muteBtn');
     DOM.callBtn = document.getElementById('callBtn');
     DOM.hangupBtn = document.getElementById('hangupBtn');
-    DOM.connectionStatus = document.getElementById('connectionStatus');
-    DOM.statusDot = DOM.connectionStatus.querySelector('.status-dot');
-    DOM.statusText = DOM.connectionStatus.querySelector('.status-text');
+    DOM.statusDot = document.querySelector('.status-dot');
+    DOM.statusText = document.querySelector('.status-text');
     DOM.logOutput = document.getElementById('logOutput');
     DOM.audioCanvas = document.getElementById('audioCanvas');
     DOM.remoteAudio = document.getElementById('remoteAudio');
 }
-
+/**
+ * Manager sınıflarını başlat
+ */
 function initializeManagers() {
     // Audio Manager
     AppState.audioManager = new AudioManager();
-    AppState.audioManager.onStreamReady = handleLocalStreamReady;
-    AppState.audioManager.onError = handleAudioError;
+    AppState.audioManager.onError = (error) => {
+        log(`Audio hatası: ${error.message}`, 'error');
+    };
     
     // Signaling Manager
     AppState.signalingManager = new SignalingManager();
-    AppState.signalingManager.onConnected = handleSignalingConnected;
-    AppState.signalingManager.onDisconnected = handleSignalingDisconnected;
-    AppState.signalingManager.onOffer = handleRemoteOffer;
-    AppState.signalingManager.onAnswer = handleRemoteAnswer;
-    AppState.signalingManager.onIceCandidate = handleRemoteIceCandidate;
-    AppState.signalingManager.onError = handleSignalingError;
+    
+    // Connection events
+    AppState.signalingManager.onConnected = (clientId) => {
+        log(`Sunucuya bağlandı. Client ID: ${clientId}`, 'success');
+        DOM.statusDot.classList.add('connected');
+        DOM.statusText.textContent = 'Sunucuya Bağlı';
+        DOM.userId.value = clientId;
+    };
+    
+    AppState.signalingManager.onDisconnected = (reason) => {
+        log(`Bağlantı koptu: ${reason}`, 'warning');
+        DOM.statusDot.classList.remove('connected');
+        DOM.statusText.textContent = 'Bağlantı Koptu';
+    };
+    
+    // Room events
+    AppState.signalingManager.onRoomCreated = () => {
+        log('Oda oluşturuldu. Diğer kullanıcılar bekleniyor...', 'info');
+        AppState.isInitiator = true;
+    };
+    
+    AppState.signalingManager.onRoomJoined = () => {
+        log('Odaya katılındı. Bağlantı kuruluyor...', 'info');
+        AppState.isInitiator = false;
+    };
+    
+    AppState.signalingManager.onReady = async () => {
+        // Eğer kurucu bizsek, offer'ı biz başlatırız
+        if (AppState.isInitiator) {
+            await initiateWebRTC();
+        }
+    };
+    
+    AppState.signalingManager.onFull = () => {
+        log('HATA: Oda dolu! Başka bir oda ismi deneyin.', 'error');
+        resetCallState();
+    };
+    
+    // WebRTC signaling events
+    AppState.signalingManager.onOffer = async (sdp) => {
+        if (!AppState.isInitiator && !AppState.isInCall) {
+            await handleIncomingOffer(sdp);
+        }
+    };
+    
+    AppState.signalingManager.onAnswer = async (sdp) => {
+        if (AppState.peerConnection) {
+            await AppState.peerConnection.setRemoteDescription(
+                new RTCSessionDescription(sdp)
+            );
+        }
+    };
+    
+    AppState.signalingManager.onIceCandidate = async (candidate) => {
+        if (AppState.peerConnection && candidate) {
+            try {
+                await AppState.peerConnection.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                );
+            } catch (error) {
+            }
+        }
+    };
+    
+    AppState.signalingManager.onError = (error, context) => {
+    };
     
     // Bağlantıyı başlat
-    const userId = DOM.userId.value.trim() || null;
-    AppState.signalingManager.connect(userId);
+    AppState.signalingManager.connect();
 }
 
+/**
+ * UI event listener'larını bağla
+ */
 function attachEventListeners() {
+    // Mikrofon başlatma
     DOM.initAudioBtn.addEventListener('click', handleInitAudio);
+    
+    // Mute toggle
     DOM.muteBtn.addEventListener('click', handleMuteToggle);
-    DOM.callBtn.addEventListener('click', handleStartCall);
+    
+    // Odaya gir
+    DOM.callBtn.addEventListener('click', handleJoinRoom);
+    
+    // Aramayı sonlandır
     DOM.hangupBtn.addEventListener('click', handleHangup);
     
-    DOM.peerId.addEventListener('keypress', (e) => {
+    // Enter tuşu ile odaya gir
+    DOM.roomId.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !DOM.callBtn.disabled) {
-            handleStartCall();
+            handleJoinRoom();
         }
     });
 }
 
-// ============================================================================
-// Event Handler'lar - Audio
-// ============================================================================
 
+// Event Handlers - Audio
+
+
+/**
+ * Mikrofon başlatma
+ */
 async function handleInitAudio() {
     DOM.initAudioBtn.disabled = true;
-    DOM.initAudioBtn.textContent = 'Başlatılıyor...';
     
     const result = await AppState.audioManager.initializeMicrophone();
     
     if (result.success) {
-        log('Mikrofon başarıyla başlatıldı', 'success');
+        log('Mikrofon başlatıldı', 'success');
+        
+        // Görselleştirmeyi başlat
         AppState.audioManager.setupVisualization(DOM.audioCanvas);
-        DOM.initAudioBtn.textContent = 'Mikrofon Aktif';
+        
+        // UI güncellemeleri
+        DOM.initAudioBtn.innerHTML = '<span class="icon"></span> Mikrofon Aktif';
         DOM.muteBtn.disabled = false;
         DOM.callBtn.disabled = false;
+        
     } else {
         log(`Mikrofon hatası: ${result.error}`, 'error');
         DOM.initAudioBtn.disabled = false;
-        DOM.initAudioBtn.textContent = 'Mikrofon Başlat';
+        DOM.initAudioBtn.innerHTML = '<span class="icon"></span> Sistemi Başlat';
     }
 }
 
+/**
+ * Mikrofon sessize alma
+ */
 function handleMuteToggle() {
     const isMuted = AppState.audioManager.toggleMute();
+    
     if (isMuted) {
-        DOM.muteBtn.textContent = 'Sesi Aç';
+        DOM.muteBtn.innerHTML = '<span class="icon"></span> Sesi Aç';
         DOM.muteBtn.classList.add('btn-danger');
+        DOM.muteBtn.classList.remove('btn-secondary');
         log('Mikrofon sessize alındı', 'warning');
     } else {
-        DOM.muteBtn.textContent = 'Sessize Al';
+        DOM.muteBtn.innerHTML = '<span class="icon"></span> Sessize Al';
         DOM.muteBtn.classList.remove('btn-danger');
+        DOM.muteBtn.classList.add('btn-secondary');
         log('Mikrofon aktif', 'success');
     }
 }
 
-function handleLocalStreamReady(stream) {
-    // Local stream hazır olduğunda yapılacaklar (gerekirse)
-}
 
-function handleAudioError(error) {
-    log(`Audio hatası: ${error.message}`, 'error');
-}
+// Event Handlers - Room Management
 
-// ============================================================================
-// Event Handler'lar - Signaling
-// ============================================================================
-
-function handleSignalingConnected(userId) {
-    log(`Sunucuya bağlandı. ID: ${userId}`, 'success');
-    DOM.statusDot.classList.add('connected');
-    DOM.statusText.textContent = 'Bağlı';
-    if (!DOM.userId.value) DOM.userId.value = userId;
-}
-
-function handleSignalingDisconnected(reason) {
-    log(`Bağlantı koptu: ${reason}`, 'warning');
-    DOM.statusDot.classList.remove('connected');
-    DOM.statusText.textContent = 'Bağlantı Koptu';
-}
-
-function handleSignalingError(error) {
-    log(`Signaling hatası: ${error.message}`, 'error');
-}
-
-// ============================================================================
-// 🔥 WebRTC CORE LOGIC (EN ÖNEMLİ KISIM)
-// ============================================================================
 
 /**
- * Yeni bir PeerConnection oluşturur ve medya olaylarını bağlar
+ * Odaya katılma
  */
-async function createPeerConnection(targetUserId) {
-    // Varsa eski bağlantıyı temizle
-    if (AppState.peerConnection) {
-        AppState.peerConnection.close();
-    }
-
-    log('WebRTC bağlantısı hazırlanıyor...', 'info');
-
-    // 1. Yeni bağlantı nesnesi oluştur
-    AppState.peerConnection = new RTCPeerConnection({
-        iceServers: AppState.iceServers
-    });
+function handleJoinRoom() {
+    const roomId = DOM.roomId.value.trim();
     
-    // 2. KENDİ SESİMİZİ EKLEME (SENDER)
-    // Bunu yapmazsak karşı taraf bizi duyamaz!
-    if (AppState.audioManager.localStream) {
-        AppState.audioManager.localStream.getTracks().forEach(track => {
-            AppState.peerConnection.addTrack(track, AppState.audioManager.localStream);
-        });
-        log('Yerel ses akışı bağlantıya eklendi.', 'info');
-    } else {
-        log('HATA: Yerel ses akışı bulunamadı!', 'error');
-    }
-    
-    // 3. KARŞI TARAFIN SESİNİ DUYMA (RECEIVER)
-    // Karşıdan bir track (ses) geldiğinde bu tetiklenir
-    AppState.peerConnection.ontrack = (event) => {
-        console.log('Stream Geldi:', event.streams);
-        log('🎵 Uzak ses akışı alındı!', 'success');
-        
-        // HTML Audio elementine bağla
-        if (DOM.remoteAudio.srcObject !== event.streams[0]) {
-            DOM.remoteAudio.srcObject = event.streams[0];
-            log('Ses hoparlöre verildi.', 'success');
-        }
-    };
-    
-    // 4. ICE Adaylarını Yönetme
-    AppState.peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            AppState.signalingManager.sendIceCandidate(targetUserId, event.candidate);
-        }
-    };
-    
-    // 5. Bağlantı Durumu İzleme
-    AppState.peerConnection.onconnectionstatechange = () => {
-        const state = AppState.peerConnection.connectionState;
-        log(`Bağlantı durumu: ${state}`, 'info');
-        if (state === 'connected') {
-            log('✅ P2P Bağlantısı Başarılı!', 'success');
-        }
-        if (state === 'disconnected' || state === 'failed') {
-            handleHangup();
-        }
-    };
-}
-
-/**
- * ARAMA BAŞLATMA (Caller)
- */
-async function handleStartCall() {
-    const targetUserId = DOM.peerId.value.trim();
-    
-    if (!targetUserId) {
-        log('Lütfen hedef ID giriniz', 'warning');
+    if (!roomId) {
+        log('Lütfen bir oda ismi girin', 'warning');
         return;
     }
     
     if (!AppState.audioManager.localStream) {
-        log('Önce mikrofonu başlatın!', 'warning');
+        log('Önce mikrofonu başlatın', 'warning');
         return;
     }
     
-    try {
-        log(`${targetUserId} aranıyor...`, 'info');
-        
-        // Önce bağlantıyı kur ve streamleri ekle
-        await createPeerConnection(targetUserId);
-        
-        // Sonra teklif (Offer) oluştur
-        const offer = await AppState.peerConnection.createOffer();
-        await AppState.peerConnection.setLocalDescription(offer);
-        
-        AppState.signalingManager.sendOffer(targetUserId, offer);
-        
-        AppState.isInCall = true;
-        AppState.currentPeerId = targetUserId;
-        updateUICallState(true);
-        
-        log(`Offer gönderildi -> ${targetUserId}`, 'success');
-        
-    } catch (error) {
-        log(`Arama hatası: ${error.message}`, 'error');
-    }
+    AppState.currentRoomId = roomId;
+    AppState.signalingManager.setCurrentRoomId(roomId);
+    AppState.signalingManager.joinRoom(roomId);
+    
+    // UI güncelle
+    DOM.callBtn.disabled = true;
+    DOM.hangupBtn.disabled = false;
+    DOM.roomId.disabled = true;
 }
 
 /**
- * ARAMA CEVAPLAMA (Callee)
+ * Aramayı sonlandır
  */
-async function handleRemoteOffer(data) {
-    try {
-        log(`Arama geldi: ${data.from}`, 'info');
-        
-        // Bağlantıyı kur ve streamleri ekle
-        await createPeerConnection(data.from);
-        
-        // Karşı tarafın teklifini kabul et
-        await AppState.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-        
-        // Cevap (Answer) oluştur
-        const answer = await AppState.peerConnection.createAnswer();
-        await AppState.peerConnection.setLocalDescription(answer);
-        
-        AppState.signalingManager.sendAnswer(data.from, answer);
-        
-        AppState.isInCall = true;
-        AppState.currentPeerId = data.from;
-        updateUICallState(true);
-        
-        log(`Cevaplandı -> ${data.from}`, 'success');
-        
-    } catch (error) {
-        log(`Offer işleme hatası: ${error.message}`, 'error');
-    }
-}
-
-async function handleRemoteAnswer(data) {
-    try {
-        log(`Cevap alındı: ${data.from}`, 'info');
-        await AppState.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    } catch (error) {
-        log(`Answer hatası: ${error.message}`, 'error');
-    }
-}
-
-async function handleRemoteIceCandidate(data) {
-    try {
-        if (AppState.peerConnection) {
-            await AppState.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-    } catch (error) {
-        console.error('ICE hatası', error);
-    }
-}
-
 function handleHangup() {
+    log('Arama sonlandırılıyor...', 'info');
+    
+    // PeerConnection'ı kapat
     if (AppState.peerConnection) {
         AppState.peerConnection.close();
         AppState.peerConnection = null;
     }
     
+    // Remote audio durdur
     if (DOM.remoteAudio.srcObject) {
         DOM.remoteAudio.srcObject.getTracks().forEach(track => track.stop());
         DOM.remoteAudio.srcObject = null;
     }
     
-    AppState.isInCall = false;
-    AppState.currentPeerId = null;
-    updateUICallState(false);
+    resetCallState();
     
-    log('Arama sonlandırıldı', 'info');
+    // Sayfayı yenile (daha temiz bir çözüm)
+    setTimeout(() => location.reload(), 500);
 }
 
-// ============================================================================
-// Yardımcı Fonksiyonlar
-// ============================================================================
-
-function updateUICallState(inCall) {
-    DOM.callBtn.disabled = inCall;
-    DOM.hangupBtn.disabled = !inCall;
-    DOM.peerId.disabled = inCall;
+/**
+ * Arama durumunu sıfırla
+ */
+function resetCallState() {
+    AppState.isInCall = false;
+    AppState.currentRoomId = null;
+    AppState.isInitiator = false;
+    
+    DOM.callBtn.disabled = false;
+    DOM.hangupBtn.disabled = true;
+    DOM.roomId.disabled = false;
 }
 
+
+// WebRTC Core Logic - Room-Based P2P
+
+
+/**
+ * PeerConnection oluştur (ortak fonksiyon)
+ */
+function createPeerConnection() {
+    log('PeerConnection oluşturuluyor...', 'info');
+    
+    const pc = new RTCPeerConnection({
+        iceServers: AppState.iceServers
+    });
+    
+    // ICE candidate handler
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            AppState.signalingManager.sendIceCandidate(event.candidate);
+        }
+    };
+    
+    // Remote stream handler
+    pc.ontrack = (event) => {
+        if (DOM.remoteAudio.srcObject !== event.streams[0]) {
+            DOM.remoteAudio.srcObject = event.streams[0];
+        }
+    };
+    
+    // Connection state handler
+    pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        log(`Bağlantı durumu: ${state}`, 'info');
+        
+        if (state === 'connected') {
+            log('BAĞLANTI KURULDU!', 'success');
+            AppState.isInCall = true;
+        } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+            log('Bağlantı kapatıldı veya koptu', 'warning');
+            handleHangup();
+        }
+    };
+    
+    // Local stream'i ekle
+    if (AppState.audioManager.localStream) {
+        AppState.audioManager.localStream.getTracks().forEach(track => {
+            pc.addTrack(track, AppState.audioManager.localStream);
+        });
+    }
+    
+    AppState.peerConnection = pc;
+    return pc;
+}
+
+/**
+ * WebRTC başlatma (Initiator - Offer gönderen taraf)
+ */
+async function initiateWebRTC() {
+    try {
+        
+        const pc = createPeerConnection();
+        
+        // Offer oluştur
+        const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: false
+        });
+        
+        // Local description ayarla
+        await pc.setLocalDescription(offer);
+        
+        // Offer'ı gönder
+        AppState.signalingManager.sendOffer(offer);
+        log('Offer gönderildi', 'success');
+        
+    } catch (error) {
+    }
+}
+
+/**
+ * Gelen Offer'ı işle (Peer - Answer gönderen taraf)
+ */
+async function handleIncomingOffer(offerSdp) {
+    try {
+        const pc = createPeerConnection();
+        
+        // Remote description ayarla
+        await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
+        
+        // Answer oluştur
+        const answer = await pc.createAnswer();
+        
+        // Local description ayarla
+        await pc.setLocalDescription(answer);
+        
+        // Answer'ı gönder
+        AppState.signalingManager.sendAnswer(answer);
+        
+    } catch (error) {
+    }
+}
+// Helper Functions
+/**
+ * Log mesajı ekle (timestamp ile)
+ */
 function log(message, type = 'info') {
     const timestamp = new Date().toLocaleTimeString('tr-TR');
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;
-    
-    let color = '#4ade80';
-    if (type === 'error') color = '#ef4444';
-    if (type === 'warning') color = '#f59e0b';
-    if (type === 'success') color = '#3b82f6';
-    
-    entry.style.color = color;
-    entry.innerHTML = `<span style="opacity:0.6">[${timestamp}]</span> > ${message}`;
+    entry.textContent = `[${timestamp}] ${message}`;
     
     DOM.logOutput.appendChild(entry);
+    
+    // Auto scroll
     DOM.logOutput.scrollTop = DOM.logOutput.scrollHeight;
-    console.log(`[${type.toUpperCase()}] ${message}`);
 }
 
-// ============================================================================
-// Cleanup
-// ============================================================================
+
+// Cleanup & Resource Management
+
+
+/**
+ * Sayfa kapatılmadan önce temizlik yap
+ */
 window.addEventListener('beforeunload', () => {
-    if (AppState.audioManager) AppState.audioManager.cleanup();
-    if (AppState.signalingManager) AppState.signalingManager.disconnect();
-    if (AppState.peerConnection) AppState.peerConnection.close();
+    if (AppState.audioManager) {
+        AppState.audioManager.cleanup();
+    }
+    
+    if (AppState.peerConnection) {
+        AppState.peerConnection.close();
+    }
+    
+    if (AppState.signalingManager) {
+        AppState.signalingManager.disconnect();
+    }
 });

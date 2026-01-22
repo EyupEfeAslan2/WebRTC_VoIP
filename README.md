@@ -17,9 +17,9 @@ Proje, karmaşıklık yerine **stabilite ve ses kalitesine** odaklanmaktadır.
 * **Protocol:** WebRTC (UDP/TCP, SRTP, DTLS)
 
 ## Geliştirme Yol Haritası (4 Hafta)
-- [ ] **Hafta 1:** Ortam kurulumu, Signaling Server (Socket.io) ve 1:1 Ses Bağlantısı.
+- [ ] **Hafta 1:** Ortam kurulumu, Signaling Server (Socket.io) ve 1:1 Ses Bağlantısı.  //Bitti
 - [ ] **Hafta 2:** NAT Traversal (STUN/TURN) entegrasyonu ve ağ testleri.
-- [ ] **Hafta 3:** Çoklu kullanıcı (Multi-peer) ses odası mantığı.
+- [ ] **Hafta 3:** Çoklu kullanıcı (Multi-peer) ses odası mantığı.  //Devam ediyor
 - [ ] **Hafta 4:** Görüntü entegrasyonu ve ağ analiz dashboard'u.
 
 ---

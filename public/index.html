@@ -6,7 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="description" content="WebRTC VoIP Prototype Application">
     <title>WebRTC VoIP | Turkcell Staj Projesi</title>
-    <link rel="stylesheet" href="style.css?v=1.0">
+    
+    <link rel="stylesheet" href="style.css?v=2.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 </head>
@@ -54,9 +55,9 @@
                 </div>
                 
                 <div class="input-group">
-                    <label for="userId">Kimlik (Local ID)</label>
+                    <label for="userId">İstemci Kimliği (Client ID)</label>
                     <div class="input-wrapper">
-                        <input type="text" id="userId" placeholder="Otomatik veya Manuel Gir" autocomplete="off">
+                        <input type="text" id="userId" placeholder="Sunucudan bekleniyor..." readonly autocomplete="off">
                     </div>
                 </div>
 
@@ -65,25 +66,26 @@
                         <span class="icon">🎙️</span> Sistemi Başlat
                     </button>
                     <button id="muteBtn" class="btn btn-secondary" disabled>
-                        <span class="icon">🔇</span> Mute
+                        <span class="icon">🔇</span> Sessize Al
                     </button>
                 </div>
 
                 <hr class="divider">
 
                 <div class="input-group">
-                    <label for="peerId">Hedef Kimlik (Remote ID)</label>
+                    <label for="peerId">Oda İsmi (Room ID)</label>
                     <div class="input-wrapper">
-                        <input type="text" id="peerId" placeholder="Örn: user_123" autocomplete="off">
+                        <input type="text" id="peerId" placeholder="Örn: Toplanti1" autocomplete="off">
                     </div>
                 </div>
 
                 <div class="call-actions">
                     <button id="callBtn" class="btn btn-success" disabled>
-                        <span class="icon">📞</span> Bağlan
+                        <span class="icon">🚪</span> Odaya Gir
                     </button>
+                    
                     <button id="hangupBtn" class="btn btn-danger" disabled>
-                        <span class="icon">📴</span> Sonlandır
+                        <span class="icon">📴</span> Ayrıl
                     </button>
                 </div>
             </section>
@@ -95,18 +97,19 @@
                 <button class="btn-xs" onclick="document.getElementById('logOutput').innerHTML=''">Temizle</button>
             </div>
             <div id="logOutput" class="terminal-view">
-                <div class="log-entry system">> Sistem hazır. Kullanıcı girişi bekleniyor...</div>
+                <div class="log-entry system">> Sistem hazır. Mikrofon izni bekleniyor...</div>
             </div>
         </section>
 
     </main>
 
     <footer class="app-footer container">
-        <p>&copy; 2026 Turkcell VoIP Staj Projesi | WebRTC v1.0 </p>
+        <p>&copy; WebRTC Staj Projesi v2.0</p>
     </footer>
 
-    <audio id="remoteAudio" autoplay controls style="position:fixed; bottom:10px; right:10px; z-index:9999;"></audio>
+    <audio id="remoteAudio" autoplay controls style="position:fixed; bottom:20px; right:20px; z-index:9999; box-shadow: 0 4px 12px rgba(199, 15, 15, 0.5); border-radius: 30px; background: #fff;"></audio>
+    
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="script.js?v=1.0"></script>
+    <script type="module" src="script.js?v=2.0"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 {
   "name": "webrtc-voip-prototype",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "WebRTC VoIP Prototype - Turkcell Staj Projesi",
   "main": "server.js",
   "scripts": {
@@ -35,6 +35,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/EyupEfeAslan2?tab=repositories"
+    "url": "https://github.com/EyupEfeAslan2/WebRTC_VoIP"
   }
 }

@@ -1,8 +1,8 @@
 /**
- * WebRTC VoIP Server
+ * WebRTC VoIP Server - Room-Based Architecture
  * Turkcell VoIP Ekibi - Staj Projesi
  * 
- * Bu sunucu WebRTC signaling için Socket.io kullanır
+ * Oda tabanlı sinyalleşme sunucusu
  * Clean code ve modüler yapıyla geliştirilmiştir
  */
 
@@ -18,21 +18,21 @@ const CONFIG = {
     PORT: process.env.PORT || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development',
     CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
-    MAX_CONNECTIONS: 100,
+    MAX_ROOM_SIZE: 10, // Maksimum oda kapasitesi
     HEARTBEAT_INTERVAL: 30000 // 30 saniye
 };
 
 // ============================================================================
-// Uygulama Durumu (State Management)
+// Server State - Room Management
 // ============================================================================
 const ServerState = {
-    connectedUsers: new Map(), // socketId -> userData
-    activeCalls: new Map(),    // callId -> {caller, callee, startTime}
+    rooms: new Map(), // roomId -> Set of socketIds
+    socketToRoom: new Map(), // socketId -> roomId
     stats: {
         totalConnections: 0,
         activeConnections: 0,
-        totalCalls: 0,
-        activeCalls: 0
+        totalRooms: 0,
+        activeRooms: 0
     }
 };
 
@@ -58,13 +58,15 @@ app.get('/health', (req, res) => {
 
 // Stats endpoint
 app.get('/api/stats', (req, res) => {
+    const roomsInfo = Array.from(ServerState.rooms.entries()).map(([roomId, members]) => ({
+        roomId,
+        memberCount: members.size,
+        members: Array.from(members)
+    }));
+    
     res.json({
         stats: ServerState.stats,
-        users: Array.from(ServerState.connectedUsers.values()).map(u => ({
-            userId: u.userId,
-            connectedAt: u.connectedAt
-        })),
-        calls: Array.from(ServerState.activeCalls.values())
+        rooms: roomsInfo
     });
 });
 
@@ -110,172 +112,155 @@ io.on('connection', (socket) => {
  * @param {Socket} socket 
  */
 function registerSocketHandlers(socket) {
-    socket.on('register', (data) => handleUserRegister(socket, data));
+    // Room yönetimi
+    socket.on('join-room', (roomId) => handleJoinRoom(socket, roomId));
+    
+    // WebRTC signaling
     socket.on('offer', (data) => handleOffer(socket, data));
     socket.on('answer', (data) => handleAnswer(socket, data));
-    socket.on('ice-candidate', (data) => handleIceCandidate(socket, data));
-    socket.on('hangup', (data) => handleHangup(socket, data));
+    socket.on('candidate', (data) => handleIceCandidate(socket, data));
+    
+    // Hata yönetimi
     socket.on('error', (error) => handleSocketError(socket, error));
 }
 
 // ============================================================================
-// Signaling Event Handlers
+// Room Management Handlers
 // ============================================================================
 
 /**
- * Kullanıcı kaydı
+ * Odaya katılma veya oda oluşturma
  */
-function handleUserRegister(socket, data) {
-    const userId = data.userId || socket.id;
+function handleJoinRoom(socket, roomId) {
+    if (!roomId || typeof roomId !== 'string') {
+        socket.emit('error', { message: 'Geçersiz oda ID' });
+        return;
+    }
     
-    const userData = {
-        socketId: socket.id,
-        userId: userId,
-        connectedAt: new Date().toISOString(),
-        isInCall: false
-    };
+    // Temiz oda ID
+    const cleanRoomId = roomId.trim();
     
-    ServerState.connectedUsers.set(socket.id, userData);
+    // Oda yoksa oluştur
+    if (!ServerState.rooms.has(cleanRoomId)) {
+        ServerState.rooms.set(cleanRoomId, new Set());
+        ServerState.stats.totalRooms++;
+        ServerState.stats.activeRooms++;
+        logSuccess(`Yeni oda oluşturuldu: ${cleanRoomId}`);
+    }
     
-    // Kullanıcıya ID'sini gönder
-    socket.emit('registered', { userId });
+    const room = ServerState.rooms.get(cleanRoomId);
     
-    // Diğer kullanıcılara bildir
-    socket.broadcast.emit('user-joined', { userId });
+    // Oda dolu mu kontrol et
+    if (room.size >= CONFIG.MAX_ROOM_SIZE) {
+        socket.emit('full-room');
+        logWarning(`Oda dolu: ${cleanRoomId} (${room.size}/${CONFIG.MAX_ROOM_SIZE})`);
+        return;
+    }
     
-    logSuccess(`Kullanıcı kaydedildi: ${userId}`);
+    // Socket'i odaya ekle
+    socket.join(cleanRoomId);
+    room.add(socket.id);
+    ServerState.socketToRoom.set(socket.id, cleanRoomId);
+    
+    // Odadaki ilk kişi mi?
+    if (room.size === 1) {
+        socket.emit('room-created');
+        logInfo(`${socket.id} odayı oluşturdu: ${cleanRoomId}`);
+    } else {
+        socket.emit('room-joined');
+        logInfo(`${socket.id} odaya katıldı: ${cleanRoomId} (${room.size} kişi)`);
+        
+        // Diğer katılımcılara bildir
+        socket.to(cleanRoomId).emit('ready');
+        socket.emit('ready');
+        
+        logSuccess(`Oda hazır: ${cleanRoomId} (${room.size} kişi)`);
+    }
 }
+
+// ============================================================================
+// WebRTC Signaling Handlers
+// ============================================================================
 
 /**
  * WebRTC Offer işleme
  */
 function handleOffer(socket, data) {
-    const { from, to, offer } = data;
+    const { sdp, roomId } = data;
     
-    if (!validateSignalingData(data, ['from', 'to', 'offer'])) {
+    if (!validateSignalingData(data, ['sdp', 'roomId'])) {
         socket.emit('error', { message: 'Geçersiz offer verisi' });
         return;
     }
     
-    // Hedef kullanıcıyı bul
-    const targetSocket = findSocketByUserId(to);
+    // Odaya gönder (kendisi hariç)
+    socket.to(roomId).emit('offer', { sdp });
     
-    if (!targetSocket) {
-        socket.emit('error', { message: 'Hedef kullanıcı bulunamadı' });
-        logWarning(`Offer iletimi başarısız: ${to} kullanıcısı bulunamadı`);
-        return;
-    }
-    
-    // Offer'ı ilet
-    targetSocket.emit('offer', { from, offer });
-    
-    // Arama kaydı oluştur
-    const callId = `${from}_${to}_${Date.now()}`;
-    ServerState.activeCalls.set(callId, {
-        caller: from,
-        callee: to,
-        startTime: new Date().toISOString(),
-        status: 'ringing'
-    });
-    
-    ServerState.stats.totalCalls++;
-    ServerState.stats.activeCalls++;
-    
-    logInfo(`Offer iletildi: ${from} → ${to}`);
+    logInfo(`Offer iletildi: ${socket.id} → Oda: ${roomId}`);
 }
 
 /**
  * WebRTC Answer işleme
  */
 function handleAnswer(socket, data) {
-    const { from, to, answer } = data;
+    const { sdp, roomId } = data;
     
-    if (!validateSignalingData(data, ['from', 'to', 'answer'])) {
+    if (!validateSignalingData(data, ['sdp', 'roomId'])) {
         socket.emit('error', { message: 'Geçersiz answer verisi' });
         return;
     }
     
-    // Hedef kullanıcıyı bul
-    const targetSocket = findSocketByUserId(to);
+    // Odaya gönder (kendisi hariç)
+    socket.to(roomId).emit('answer', { sdp });
     
-    if (!targetSocket) {
-        socket.emit('error', { message: 'Hedef kullanıcı bulunamadı' });
-        logWarning(`Answer iletimi başarısız: ${to} kullanıcısı bulunamadı`);
-        return;
-    }
-    
-    // Answer'ı ilet
-    targetSocket.emit('answer', { from, answer });
-    
-    // Arama durumunu güncelle
-    updateCallStatus(from, to, 'connected');
-    
-    logSuccess(`Answer iletildi: ${from} → ${to}`);
+    logSuccess(`Answer iletildi: ${socket.id} → Oda: ${roomId}`);
 }
 
 /**
  * ICE Candidate işleme
  */
 function handleIceCandidate(socket, data) {
-    const { from, to, candidate } = data;
+    const { candidate, roomId } = data;
     
-    if (!validateSignalingData(data, ['from', 'to', 'candidate'])) {
+    if (!validateSignalingData(data, ['candidate', 'roomId'])) {
         socket.emit('error', { message: 'Geçersiz ICE candidate verisi' });
         return;
     }
     
-    // Hedef kullanıcıyı bul
-    const targetSocket = findSocketByUserId(to);
+    // Odaya gönder (kendisi hariç)
+    socket.to(roomId).emit('candidate', { candidate });
     
-    if (!targetSocket) {
-        logWarning(`ICE candidate iletimi başarısız: ${to} kullanıcısı bulunamadı`);
-        return;
-    }
-    
-    // ICE candidate'i ilet
-    targetSocket.emit('ice-candidate', { from, candidate });
-    
-    logInfo(`ICE candidate iletildi: ${from} → ${to}`);
-}
-
-/**
- * Arama sonlandırma
- */
-function handleHangup(socket, data) {
-    const { from, to } = data;
-    
-    // Hedef kullanıcıya bildir
-    const targetSocket = findSocketByUserId(to);
-    if (targetSocket) {
-        targetSocket.emit('hangup', { from });
-    }
-    
-    // Arama kaydını sil
-    removeCall(from, to);
-    
-    logInfo(`Arama sonlandırıldı: ${from} ↔ ${to}`);
+    logInfo(`ICE candidate iletildi: ${socket.id} → Oda: ${roomId}`);
 }
 
 /**
  * Bağlantı kopması
  */
 function handleDisconnect(socket) {
-    const userData = ServerState.connectedUsers.get(socket.id);
+    const roomId = ServerState.socketToRoom.get(socket.id);
     
-    if (userData) {
-        // Kullanıcının aktif aramalarını sonlandır
-        terminateUserCalls(userData.userId);
+    if (roomId) {
+        const room = ServerState.rooms.get(roomId);
         
-        // Kullanıcıyı sil
-        ServerState.connectedUsers.delete(socket.id);
+        if (room) {
+            // Kullanıcıyı odadan çıkar
+            room.delete(socket.id);
+            
+            // Oda boşaldıysa sil
+            if (room.size === 0) {
+                ServerState.rooms.delete(roomId);
+                ServerState.stats.activeRooms--;
+                logInfo(`Oda silindi: ${roomId}`);
+            } else {
+                logWarning(`Kullanıcı ayrıldı: ${socket.id} | Oda: ${roomId} (${room.size} kişi kaldı)`);
+            }
+        }
         
-        // Diğer kullanıcılara bildir
-        socket.broadcast.emit('user-left', { userId: userData.userId });
-        
-        logWarning(`Kullanıcı ayrıldı: ${userData.userId}`);
+        ServerState.socketToRoom.delete(socket.id);
     }
     
     ServerState.stats.activeConnections--;
+    logWarning(`Bağlantı koptu: ${socket.id}`);
 }
 
 /**
@@ -286,83 +271,16 @@ function handleSocketError(socket, error) {
 }
 
 // ============================================================================
-// Yardımcı Fonksiyonlar
+// Helper Functions
 // ============================================================================
-
-/**
- * User ID'ye göre socket bul
- */
-function findSocketByUserId(userId) {
-    for (const [socketId, userData] of ServerState.connectedUsers.entries()) {
-        if (userData.userId === userId) {
-            return io.sockets.sockets.get(socketId);
-        }
-    }
-    return null;
-}
 
 /**
  * Signaling verisi validasyonu
  */
 function validateSignalingData(data, requiredFields) {
-    return requiredFields.every(field => data.hasOwnProperty(field) && data[field] != null);
-}
-
-/**
- * Arama durumunu güncelle
- */
-function updateCallStatus(from, to, status) {
-    for (const [callId, call] of ServerState.activeCalls.entries()) {
-        if ((call.caller === from && call.callee === to) || 
-            (call.caller === to && call.callee === from)) {
-            call.status = status;
-            if (status === 'connected') {
-                call.connectedAt = new Date().toISOString();
-            }
-            break;
-        }
-    }
-}
-
-/**
- * Arama kaydını sil
- */
-function removeCall(from, to) {
-    for (const [callId, call] of ServerState.activeCalls.entries()) {
-        if ((call.caller === from && call.callee === to) || 
-            (call.caller === to && call.callee === from)) {
-            ServerState.activeCalls.delete(callId);
-            ServerState.stats.activeCalls--;
-            break;
-        }
-    }
-}
-
-/**
- * Kullanıcının tüm aramalarını sonlandır
- */
-function terminateUserCalls(userId) {
-    const callsToRemove = [];
-    
-    for (const [callId, call] of ServerState.activeCalls.entries()) {
-        if (call.caller === userId || call.callee === userId) {
-            callsToRemove.push(callId);
-            
-            // Diğer tarafa bildir
-            const otherUserId = call.caller === userId ? call.callee : call.caller;
-            const otherSocket = findSocketByUserId(otherUserId);
-            
-            if (otherSocket) {
-                otherSocket.emit('hangup', { from: userId });
-            }
-        }
-    }
-    
-    // Aramaları sil
-    callsToRemove.forEach(callId => {
-        ServerState.activeCalls.delete(callId);
-        ServerState.stats.activeCalls--;
-    });
+    return requiredFields.every(field => 
+        data.hasOwnProperty(field) && data[field] != null
+    );
 }
 
 // ============================================================================
@@ -397,7 +315,7 @@ function logError(message) {
  * Heartbeat - Bağlantı durumunu kontrol et
  */
 setInterval(() => {
-    logInfo(`Aktif bağlantılar: ${ServerState.stats.activeConnections} | Aktif aramalar: ${ServerState.stats.activeCalls}`);
+    logInfo(`Aktif bağlantılar: ${ServerState.stats.activeConnections} | Aktif odalar: ${ServerState.stats.activeRooms}`);
 }, CONFIG.HEARTBEAT_INTERVAL);
 
 // ============================================================================
