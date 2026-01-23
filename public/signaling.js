@@ -1,9 +1,5 @@
 /**
  * SignalingManager - Socket.io Room-Based Signaling
- * WebRTC VoIP Prototype - Clean & Cache-Friendly
- * 
- * Oda tabanlı (room-based) sinyalleşme yönetimi
- * Birden fazla kullanıcının aynı odada iletişim kurmasını sağlar
  */
 
 export class SignalingManager {
@@ -119,6 +115,9 @@ export class SignalingManager {
             if (this.onFull) {
                 this.onFull();
             }
+        });
+        this.socket.on('user-disconnected', (userId) => {
+            if (this.onPeerLeft) this.onPeerLeft(userId);
         });
     }
 
@@ -272,5 +271,8 @@ export class SignalingManager {
             currentRoomId: this.currentRoomId,
             socketId: this.socket ? this.socket.id : null
         };
+    }
+    leaveRoom(roomId) {
+        this.socket.emit('leave-room', roomId);
     }
 }

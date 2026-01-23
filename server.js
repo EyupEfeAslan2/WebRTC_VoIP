@@ -103,8 +103,25 @@ io.on('connection', (socket) => {
     // Event handler'ları kaydet
     registerSocketHandlers(socket);
     
-    // Bağlantı koptuğunda
-    socket.on('disconnect', () => handleDisconnect(socket));
+    /// Kullanıcı bilerek "Ayrıl" butonuna bastığında
+    socket.on('leave-room', (roomId) => {
+        socket.leave(roomId);
+        console.log(`Kullanıcı ${socket.id}, ${roomId} odasından ayrıldı.`);
+        // Odadaki diğer kişiye haber ver
+        socket.to(roomId).emit('user-disconnected', socket.id);
+    });
+
+    // Kullanıcı sekmesi kapandığında
+    socket.on('disconnecting', () => {
+        // Kullanıcının bulunduğu odaları bul
+        const rooms = socket.rooms;
+        rooms.forEach((roomId) => {
+            if (roomId !== socket.id) {
+                // Odadakilere haber ver
+                socket.to(roomId).emit('user-disconnected', socket.id);
+            }
+        });
+    });
 });
 
 /**

@@ -1,6 +1,5 @@
 /**
  * AudioManager - Mikrofon ve ses akışı yönetimi
- * Cache-friendly ve clean code prensiplerine uygun
  */
 
 export class AudioManager {
@@ -120,7 +119,7 @@ export class AudioManager {
             
             // Dalga çiz
             this.canvasContext.lineWidth = 2;
-            this.canvasContext.strokeStyle = '#2563eb';
+            this.canvasContext.strokeStyle = '#08ca76ff';
             this.canvasContext.beginPath();
             
             const sliceWidth = width / bufferLength;

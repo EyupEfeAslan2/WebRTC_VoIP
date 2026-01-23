@@ -75,6 +75,26 @@ function initializeManagers() {
     
     // Signaling Manager
     AppState.signalingManager = new SignalingManager();
+    // YENİ: Partner ayrıldığında yapılacaklar
+    AppState.signalingManager.onPeerLeft = (userId) => {
+        log(`Partner (${userId}) odadan ayrıldı.`, 'warning');
+        
+        // Sadece P2P bağlantısını kapat, ama odayı kapatma!
+        closePeerConnection();
+        
+        // Durumu güncelle: Hala odadayız ama yalnızız
+        // isInitiator durumunu koruyabiliriz veya true yapabiliriz
+        // çünkü artık odadaki tek kişi biziz (Lider olduk)
+        AppState.isInitiator = true; 
+        AppState.isInCall = false; // Aktif görüşme bitti
+        
+        // UI Güncellemesi (Tekrar beklemeye geçiyoruz)
+        updateUICallState(false); // Butonları aktif et (İstersek çıkabiliriz)
+        DOM.callBtn.disabled = true; // Ama zaten odadayız, tekrar giremeyiz
+        DOM.hangupBtn.disabled = false; // İstersek çıkabiliriz
+        
+        log('Odada tek kaldınız. Yeni katılımcı bekleniyor...', 'info');
+    };
     
     // Connection events
     AppState.signalingManager.onConnected = (clientId) => {
@@ -210,7 +230,7 @@ function handleMuteToggle() {
         DOM.muteBtn.innerHTML = '<span class="icon"></span> Sesi Aç';
         DOM.muteBtn.classList.add('btn-danger');
         DOM.muteBtn.classList.remove('btn-secondary');
-        log('Mikrofon sessize alındı', 'warning');
+        log('Mikrofon sessize alındı', 'info');
     } else {
         DOM.muteBtn.innerHTML = '<span class="icon"></span> Sessize Al';
         DOM.muteBtn.classList.remove('btn-danger');
@@ -252,25 +272,40 @@ function handleJoinRoom() {
 /**
  * Aramayı sonlandır
  */
+f// handleHangup fonksiyonunu tamamen bununla değiştir:
 function handleHangup() {
-    log('Arama sonlandırılıyor...', 'info');
+    log('Aramadan ayrılınıyor...', 'info');
+
+    // 1. Sunucuya haber ver (Ben çıkıyorum)
+    if (AppState.currentRoomId) {
+        AppState.signalingManager.leaveRoom(AppState.currentRoomId);
+    }
+
+    // 2. WebRTC Bağlantısını Temizle
+    closePeerConnection();
+
+    // 3. UI'ı Sıfırla (Ama sayfayı yenileme!)
+    resetCallState();
     
-    // PeerConnection'ı kapat
+    log('Aramadan ayrıldınız. Oda hala aktif olabilir.', 'warning');
+}
+
+// Yardımcı Fonksiyon: Sadece P2P bağlantısını koparır
+function closePeerConnection() {
     if (AppState.peerConnection) {
+        // Event listenerları temizle ki hafıza şişmesin
+        AppState.peerConnection.onicecandidate = null;
+        AppState.peerConnection.ontrack = null;
         AppState.peerConnection.close();
         AppState.peerConnection = null;
+        log('P2P Bağlantısı kapatıldı.', 'info');
     }
-    
-    // Remote audio durdur
+
+    // Remote Audio elementini temizle
     if (DOM.remoteAudio.srcObject) {
         DOM.remoteAudio.srcObject.getTracks().forEach(track => track.stop());
         DOM.remoteAudio.srcObject = null;
     }
-    
-    resetCallState();
-    
-    // Sayfayı yenile (daha temiz bir çözüm)
-    setTimeout(() => location.reload(), 500);
 }
 
 /**
