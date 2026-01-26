@@ -95,31 +95,35 @@ const io = new Server(server, {
  * Yeni bağlantı kurulduğunda
  */
 io.on('connection', (socket) => {
-    logInfo(`Yeni bağlantı: ${socket.id}`);
     
-    ServerState.stats.totalConnections++;
-    ServerState.stats.activeConnections++;
-    
-    // Event handler'ları kaydet
-    registerSocketHandlers(socket);
-    
-    /// Kullanıcı bilerek "Ayrıl" butonuna bastığında
-    socket.on('leave-room', (roomId) => {
-        socket.leave(roomId);
-        console.log(`Kullanıcı ${socket.id}, ${roomId} odasından ayrıldı.`);
-        // Odadaki diğer kişiye haber ver
-        socket.to(roomId).emit('user-disconnected', socket.id);
+    // 1. Odaya Katılma
+    socket.on('join-room', (roomId) => {
+        socket.join(roomId);
+        // ÖNEMLİ: Odadaki diğerlerine "Yeni biri (Ben) geldi" de.
+        // Ama bana söyleme (broadcast).
+        socket.to(roomId).emit('user-connected', socket.id); 
     });
 
-    // Kullanıcı sekmesi kapandığında
+    // 2. Sinyalleşme (Offer, Answer, ICE)
+    // Client'tan { target: 'hedef_id', sdp: ... } gelmeli
+    
+    socket.on('offer', (data) => {
+        // Sadece hedeflenen kişiye yolla
+        socket.to(data.target).emit('offer', data.sdp, socket.id);
+    });
+
+    socket.on('answer', (data) => {
+        socket.to(data.target).emit('answer', data.sdp, socket.id);
+    });
+
+    socket.on('candidate', (data) => {
+        socket.to(data.target).emit('candidate', data.candidate, socket.id);
+    });
+    
+    // 3. Ayrılma
     socket.on('disconnecting', () => {
-        // Kullanıcının bulunduğu odaları bul
-        const rooms = socket.rooms;
-        rooms.forEach((roomId) => {
-            if (roomId !== socket.id) {
-                // Odadakilere haber ver
-                socket.to(roomId).emit('user-disconnected', socket.id);
-            }
+        socket.rooms.forEach(room => {
+            socket.to(room).emit('user-disconnected', socket.id);
         });
     });
 });
@@ -397,3 +401,29 @@ process.on('unhandledRejection', (reason, promise) => {
 // Export (Testing için)
 // ============================================================================
 module.exports = { app, server, io, ServerState };
+// Bu fonksiyonu server.js'in en altına ekle
+function logServerStats() {
+    const totalUsers = io.engine.clientsCount;
+    // Socket.io'da odalar Map olarak tutulur, filtreleme gerekir
+    // (Çünkü her socket kendi ID'siyle de bir oda sayılır)
+    const activeRooms = Array.from(io.sockets.adapter.rooms.keys())
+        .filter(roomID => !io.sockets.adapter.sids.get(roomID)) // Socket ID olmayanlar odadır
+        .length;
+
+    console.log(`[MONITOR] Aktif Kullanıcı: ${totalUsers} | Aktif Oda: ${activeRooms}`);
+}
+
+// Sonra io.on('connection') bloğunun içinde şu olaylara ekle:
+io.on('connection', (socket) => {
+    
+    socket.on('join-room', (roomId) => {
+        socket.join(roomId);
+        // ... diğer kodlar ...
+        logServerStats(); // <--- BURAYA EKLE
+    });
+
+    socket.on('disconnect', () => {
+        // ... diğer kodlar ...
+        logServerStats(); // <--- BURAYA EKLE
+    });
+});

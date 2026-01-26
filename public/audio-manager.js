@@ -28,11 +28,13 @@ export class AudioManager {
             // getUserMedia constraints - ses kalitesi optimizasyonu
             const constraints = {
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    sampleRate: 48000,
-                    channelCount: 1
+                echoCancellation: true, // Yankı engelleme (ŞART)
+                noiseSuppression: true, // Gürültü bastırma
+                autoGainControl: false, // Otomatik ses yükseltmeyi kapat (Bazen dalgalanma yapar)
+                latency: 0,             // Mümkün olan en düşük gecikme
+                channelCount: 1,        // Mono ses (Bant genişliğini yarıya düşürür, hızı artırır)
+                sampleRate: 48000,
+                sampleSize: 16
                 },
                 video: false
             };
