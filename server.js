@@ -1,8 +1,7 @@
 /**
  * WebRTC VoIP Server - Room-Based Architecture
  * Turkcell VoIP Ekibi - Staj Projesi
- * 
- * Oda tabanlı sinyalleşme sunucusu
+ * * Oda tabanlı sinyalleşme sunucusu
  * Clean code ve modüler yapıyla geliştirilmiştir
  */
 
@@ -10,6 +9,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const crypto = require('crypto');
 
 // ============================================================================
 // Konfigürasyon
@@ -19,7 +19,9 @@ const CONFIG = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
     MAX_ROOM_SIZE: 10, // Maksimum oda kapasitesi
-    HEARTBEAT_INTERVAL: 30000 // 30 saniye
+    HEARTBEAT_INTERVAL: 30000, // 30 saniye
+    SALT: 'voip-secret-salt', // Virgül eklendi, hata buradaydı
+    SALT_ROUNDS: 'voip-secret-salt-2026' // hashPassword fonksiyonunda kullanılıyor
 };
 
 // ============================================================================
@@ -28,11 +30,13 @@ const CONFIG = {
 const ServerState = {
     rooms: new Map(), // roomId -> Set of socketIds
     socketToRoom: new Map(), // socketId -> roomId
+    socketToUser: new Map(), // socketId -> userId 
     stats: {
         totalConnections: 0,
         activeConnections: 0,
         totalRooms: 0,
-        activeRooms: 0
+        activeRooms: 0,
+        secureRooms: 0,
     }
 };
 
@@ -58,15 +62,36 @@ app.get('/health', (req, res) => {
 
 // Stats endpoint
 app.get('/api/stats', (req, res) => {
-    const roomsInfo = Array.from(ServerState.rooms.entries()).map(([roomId, members]) => ({
+    const roomsInfo = Array.from(ServerState.rooms.entries()).map(([roomId, room]) => ({
         roomId,
-        memberCount: members.size,
-        members: Array.from(members)
+        memberCount: room.members ? room.members.size : 0,
+        hasPassword: !!room.passwordHash,
+        createdAt: room.createdAt,
+        createdBy: room.createdBy
     }));
     
     res.json({
         stats: ServerState.stats,
         rooms: roomsInfo
+    });
+});
+
+// Room Info Endpoint
+app.get('/api/room/:roomId', (req, res) => {
+    const { roomId } = req.params;
+    const room = ServerState.rooms.get(roomId);
+    
+    if (!room) {
+        return res.status(404).json({ error: 'Oda bulunamadı' });
+    }
+    
+    res.json({
+        roomId,
+        memberCount: room.members.size,
+        maxSize: CONFIG.MAX_ROOM_SIZE,
+        hasPassword: !!room.passwordHash,
+        isFull: room.members.size >= CONFIG.MAX_ROOM_SIZE,
+        createdAt: room.createdAt
     });
 });
 
@@ -88,43 +113,65 @@ const io = new Server(server, {
 });
 
 // ============================================================================
-// Socket.io Event Handlers
+// Helper Functions
 // ============================================================================
 
 /**
- * Yeni bağlantı kurulduğunda
+ * Şifre hash'leme (SHA-256)
  */
+function hashPassword(password) {
+    if (!password) return null;
+    return crypto
+        .createHash('sha256')
+        .update(password + CONFIG.SALT_ROUNDS)
+        .digest('hex');
+}
+
+/**
+ * Şifre doğrulama
+ */
+function verifyPassword(password, hash) {
+    if (!hash) return true; // Oda şifresizse her şifre kabul
+    if (!password) return false;
+    return hashPassword(password) === hash;
+}
+
+/**
+ * Oda bilgilerini broadcast et
+ */
+function broadcastRoomInfo(roomId) {
+    const room = ServerState.rooms.get(roomId);
+    if (!room) return;
+    
+    const roomInfo = {
+        roomId,
+        memberCount: room.members.size,
+        maxSize: CONFIG.MAX_ROOM_SIZE,
+        members: Array.from(room.members)
+    };
+    
+    io.to(roomId).emit('room-info-update', roomInfo);
+}
+
+// ============================================================================
+// Socket.io Event Handlers - ANA BAĞLANTI NOKTASI
+// ============================================================================
+
 io.on('connection', (socket) => {
+    logInfo(`Yeni bağlantı: ${socket.id}`);
     
-    // 1. Odaya Katılma
-    socket.on('join-room', (roomId) => {
-        socket.join(roomId);
-        // ÖNEMLİ: Odadaki diğerlerine "Yeni biri (Ben) geldi" de.
-        // Ama bana söyleme (broadcast).
-        socket.to(roomId).emit('user-connected', socket.id); 
-    });
-
-    // 2. Sinyalleşme (Offer, Answer, ICE)
-    // Client'tan { target: 'hedef_id', sdp: ... } gelmeli
+    ServerState.stats.totalConnections++;
+    ServerState.stats.activeConnections++;
     
-    socket.on('offer', (data) => {
-        // Sadece hedeflenen kişiye yolla
-        socket.to(data.target).emit('offer', data.sdp, socket.id);
-    });
+    // Client'a ID gönder
+    socket.emit('connect-success', socket.id);
 
-    socket.on('answer', (data) => {
-        socket.to(data.target).emit('answer', data.sdp, socket.id);
-    });
+    // Senin yazdığın karmaşık logic burada patlıyordu. 
+    // Aşağıdaki 'registerSocketHandlers' fonksiyonunu kullanarak her şeyi topluyoruz.
+    registerSocketHandlers(socket);
 
-    socket.on('candidate', (data) => {
-        socket.to(data.target).emit('candidate', data.candidate, socket.id);
-    });
-    
-    // 3. Ayrılma
-    socket.on('disconnecting', () => {
-        socket.rooms.forEach(room => {
-            socket.to(room).emit('user-disconnected', socket.id);
-        });
+    socket.on('disconnect', () => {
+        handleDisconnect(socket);
     });
 });
 
@@ -133,8 +180,13 @@ io.on('connection', (socket) => {
  * @param {Socket} socket 
  */
 function registerSocketHandlers(socket) {
-    // Room yönetimi
-    socket.on('join-room', (roomId) => handleJoinRoom(socket, roomId));
+    // Room yönetimi - Veriyi ayrıştırıp gönderiyoruz
+    socket.on('join-room', (data) => {
+        // Data obje mi string mi kontrolü
+        const roomId = (typeof data === 'object') ? data.roomId : data;
+        const password = (typeof data === 'object') ? data.password : null;
+        handleJoinRoom(socket, roomId, password);
+    });
     
     // WebRTC signaling
     socket.on('offer', (data) => handleOffer(socket, data));
@@ -152,7 +204,7 @@ function registerSocketHandlers(socket) {
 /**
  * Odaya katılma veya oda oluşturma
  */
-function handleJoinRoom(socket, roomId) {
+function handleJoinRoom(socket, roomId, password) {
     if (!roomId || typeof roomId !== 'string') {
         socket.emit('error', { message: 'Geçersiz oda ID' });
         return;
@@ -163,40 +215,56 @@ function handleJoinRoom(socket, roomId) {
     
     // Oda yoksa oluştur
     if (!ServerState.rooms.has(cleanRoomId)) {
-        ServerState.rooms.set(cleanRoomId, new Set());
+        ServerState.rooms.set(cleanRoomId, {
+            members: new Set(),
+            passwordHash: hashPassword(password),
+            createdAt: new Date(),
+            createdBy: socket.id
+        });
         ServerState.stats.totalRooms++;
         ServerState.stats.activeRooms++;
+        if (password) ServerState.stats.secureRooms++;
         logSuccess(`Yeni oda oluşturuldu: ${cleanRoomId}`);
     }
     
     const room = ServerState.rooms.get(cleanRoomId);
     
+    // ŞİFRE KONTROLÜ (Senin istediğin kısım buraya entegre edildi)
+    if (!verifyPassword(password, room.passwordHash)) {
+        socket.emit('wrong-password', { roomId: cleanRoomId });
+        logWarning(`Yanlış şifre: ${socket.id} → ${cleanRoomId}`);
+        return;
+    }
+    
     // Oda dolu mu kontrol et
-    if (room.size >= CONFIG.MAX_ROOM_SIZE) {
-        socket.emit('full-room');
-        logWarning(`Oda dolu: ${cleanRoomId} (${room.size}/${CONFIG.MAX_ROOM_SIZE})`);
+    if (room.members.size >= CONFIG.MAX_ROOM_SIZE) {
+        socket.emit('room-full', { roomId: cleanRoomId });
+        logWarning(`Oda dolu: ${cleanRoomId} (${room.members.size}/${CONFIG.MAX_ROOM_SIZE})`);
         return;
     }
     
     // Socket'i odaya ekle
     socket.join(cleanRoomId);
-    room.add(socket.id);
+    room.members.add(socket.id);
     ServerState.socketToRoom.set(socket.id, cleanRoomId);
     
+    // Bildirimler
+    socket.to(cleanRoomId).emit('user-connected', socket.id);
+
     // Odadaki ilk kişi mi?
-    if (room.size === 1) {
-        socket.emit('room-created');
+    if (room.members.size === 1) {
+        socket.emit('room-created', { roomId: cleanRoomId, hasPassword: !!room.passwordHash });
         logInfo(`${socket.id} odayı oluşturdu: ${cleanRoomId}`);
     } else {
-        socket.emit('room-joined');
-        logInfo(`${socket.id} odaya katıldı: ${cleanRoomId} (${room.size} kişi)`);
-        
-        // Diğer katılımcılara bildir
-        socket.to(cleanRoomId).emit('ready');
-        socket.emit('ready');
-        
-        logSuccess(`Oda hazır: ${cleanRoomId} (${room.size} kişi)`);
+        socket.emit('room-joined', { 
+            roomId: cleanRoomId, 
+            memberCount: room.members.size,
+            hasPassword: !!room.passwordHash
+        });
+        logInfo(`${socket.id} odaya katıldı: ${cleanRoomId} (${room.members.size} kişi)`);
     }
+    
+    broadcastRoomInfo(cleanRoomId);
 }
 
 // ============================================================================
@@ -207,51 +275,39 @@ function handleJoinRoom(socket, roomId) {
  * WebRTC Offer işleme
  */
 function handleOffer(socket, data) {
-    const { sdp, roomId } = data;
-    
-    if (!validateSignalingData(data, ['sdp', 'roomId'])) {
-        socket.emit('error', { message: 'Geçersiz offer verisi' });
+    // Veri doğrulama
+    if (!data || !data.target || !data.sdp) {
+        // Hata bastırmıyoruz, sessizce geçiyoruz
         return;
     }
     
-    // Odaya gönder (kendisi hariç)
-    socket.to(roomId).emit('offer', { sdp });
-    
-    logInfo(`Offer iletildi: ${socket.id} → Oda: ${roomId}`);
+    const { target, sdp } = data;
+    // Hedefe ilet
+    socket.to(target).emit('offer', sdp, socket.id);
+    logInfo(`Offer iletildi: ${socket.id} → ${target}`);
 }
 
 /**
  * WebRTC Answer işleme
  */
 function handleAnswer(socket, data) {
-    const { sdp, roomId } = data;
+    if (!data || !data.target || !data.sdp) return;
     
-    if (!validateSignalingData(data, ['sdp', 'roomId'])) {
-        socket.emit('error', { message: 'Geçersiz answer verisi' });
-        return;
-    }
-    
-    // Odaya gönder (kendisi hariç)
-    socket.to(roomId).emit('answer', { sdp });
-    
-    logSuccess(`Answer iletildi: ${socket.id} → Oda: ${roomId}`);
+    const { target, sdp } = data;
+    // Hedefe ilet
+    socket.to(target).emit('answer', sdp, socket.id);
+    logSuccess(`Answer iletildi: ${socket.id} → ${target}`);
 }
 
 /**
  * ICE Candidate işleme
  */
 function handleIceCandidate(socket, data) {
-    const { candidate, roomId } = data;
+    if (!data || !data.target || !data.candidate) return;
     
-    if (!validateSignalingData(data, ['candidate', 'roomId'])) {
-        socket.emit('error', { message: 'Geçersiz ICE candidate verisi' });
-        return;
-    }
-    
-    // Odaya gönder (kendisi hariç)
-    socket.to(roomId).emit('candidate', { candidate });
-    
-    logInfo(`ICE candidate iletildi: ${socket.id} → Oda: ${roomId}`);
+    const { target, candidate } = data;
+    // Hedefe ilet
+    socket.to(target).emit('candidate', candidate, socket.id);
 }
 
 /**
@@ -265,15 +321,18 @@ function handleDisconnect(socket) {
         
         if (room) {
             // Kullanıcıyı odadan çıkar
-            room.delete(socket.id);
+            room.members.delete(socket.id);
+            socket.to(roomId).emit('user-disconnected', socket.id);
             
             // Oda boşaldıysa sil
-            if (room.size === 0) {
+            if (room.members.size === 0) {
                 ServerState.rooms.delete(roomId);
                 ServerState.stats.activeRooms--;
+                if (room.passwordHash) ServerState.stats.secureRooms--;
                 logInfo(`Oda silindi: ${roomId}`);
             } else {
-                logWarning(`Kullanıcı ayrıldı: ${socket.id} | Oda: ${roomId} (${room.size} kişi kaldı)`);
+                broadcastRoomInfo(roomId);
+                logWarning(`Kullanıcı ayrıldı: ${socket.id} | Oda: ${roomId} (${room.members.size} kişi kaldı)`);
             }
         }
         
@@ -289,19 +348,6 @@ function handleDisconnect(socket) {
  */
 function handleSocketError(socket, error) {
     logError(`Socket hatası [${socket.id}]: ${error.message}`);
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Signaling verisi validasyonu
- */
-function validateSignalingData(data, requiredFields) {
-    return requiredFields.every(field => 
-        data.hasOwnProperty(field) && data[field] != null
-    );
 }
 
 // ============================================================================
@@ -332,9 +378,6 @@ function logError(message) {
 // Periyodik İşlemler
 // ============================================================================
 
-/**
- * Heartbeat - Bağlantı durumunu kontrol et
- */
 setInterval(() => {
     logInfo(`Aktif bağlantılar: ${ServerState.stats.activeConnections} | Aktif odalar: ${ServerState.stats.activeRooms}`);
 }, CONFIG.HEARTBEAT_INTERVAL);
@@ -349,7 +392,6 @@ server.listen(CONFIG.PORT, () => {
     console.log('='.repeat(60));
     logSuccess(`Sunucu çalışıyor: http://localhost:${CONFIG.PORT}`);
     logInfo(`Ortam: ${CONFIG.NODE_ENV}`);
-    logInfo(`Max bağlantı: ${CONFIG.MAX_CONNECTIONS}`);
     console.log('='.repeat(60) + '\n');
 });
 
@@ -359,71 +401,13 @@ server.listen(CONFIG.PORT, () => {
 
 function gracefulShutdown(signal) {
     logWarning(`${signal} sinyali alındı. Sunucu kapatılıyor...`);
-    
-    // Tüm kullanıcılara bildir
     io.emit('server-shutdown', { message: 'Sunucu bakıma alınıyor' });
-    
-    // Bağlantıları kapat
     io.close(() => {
-        logSuccess('Socket.io bağlantıları kapatıldı');
-        
-        server.close(() => {
-            logSuccess('HTTP sunucusu kapatıldı');
-            process.exit(0);
-        });
+        server.close(() => process.exit(0));
     });
-    
-    // Timeout ile zorla kapat
-    setTimeout(() => {
-        logError('Graceful shutdown timeout. Zorla kapatılıyor...');
-        process.exit(1);
-    }, 10000);
 }
 
-// Signal handler'ları
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Uncaught exception handler
-process.on('uncaughtException', (error) => {
-    logError(`Uncaught Exception: ${error.message}`);
-    logError(error.stack);
-    gracefulShutdown('UNCAUGHT_EXCEPTION');
-});
-
-// Unhandled rejection handler
-process.on('unhandledRejection', (reason, promise) => {
-    logError(`Unhandled Rejection at: ${promise}`);
-    logError(`Reason: ${reason}`);
-});
-
-// ============================================================================
-// Export (Testing için)
-// ============================================================================
 module.exports = { app, server, io, ServerState };
-// Bu fonksiyonu server.js'in en altına ekle
-function logServerStats() {
-    const totalUsers = io.engine.clientsCount;
-    // Socket.io'da odalar Map olarak tutulur, filtreleme gerekir
-    // (Çünkü her socket kendi ID'siyle de bir oda sayılır)
-    const activeRooms = Array.from(io.sockets.adapter.rooms.keys())
-        .filter(roomID => !io.sockets.adapter.sids.get(roomID)) // Socket ID olmayanlar odadır
-        .length;
-
-    console.log(`[MONITOR] Aktif Kullanıcı: ${totalUsers} | Aktif Oda: ${activeRooms}`);
-}
-
-// Sonra io.on('connection') bloğunun içinde şu olaylara ekle:
-io.on('connection', (socket) => {
-    
-    socket.on('join-room', (roomId) => {
-        socket.join(roomId);
-        // ... diğer kodlar ...
-        logServerStats(); // <--- BURAYA EKLE
-    });
-
-    socket.on('disconnect', () => {
-        // ... diğer kodlar ...
-        logServerStats(); // <--- BURAYA EKLE
-    });
-});

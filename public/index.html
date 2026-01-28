@@ -4,24 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="WebRTC VoIP Prototype Application">
-    <title>WebRTC VoIP | Turkcell Staj Projesi</title>
+    <meta name="description" content="Turkcell VoIP İletişim Protokolü">
+    <title>WebRTC Staj</title>
     
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=3.0">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
+
+    <div class="app-background"></div>
 
     <header class="app-header">
         <div class="header-content container">
             <div class="brand">
-                <span class="logo-icon"></span>
+                <div class="logo-box">
+                    <i class="ph-fill ph-waves"></i>
+                </div>
                 <div class="brand-text">
-                    <h1>VoIP Prototype</h1>
-                    <span class="subtitle">Real-Time Communication Unit</span>
+                    <h1>WebRTC Staj</h1>
                 </div>
             </div>
+            
             <div class="connection-status" id="connectionStatus">
                 <span class="status-dot"></span>
                 <span class="status-text">Sunucu Bağlantısı Bekleniyor...</span>
@@ -35,14 +42,16 @@
             
             <section class="card viz-card">
                 <div class="card-header">
-                    <h2>Ses Analizi</h2>
-                    <span class="badge">Live</span>
+                    <div class="header-title">
+                        <i class="ph ph-waveform"></i>
+                        <h2>Ses Analizi</h2>
+                    </div>
+                    <span class="badge live-badge">Canlı</span>
                 </div>
                 <div class="canvas-wrapper">
                     <canvas id="audioCanvas"></canvas>
                 </div>
                 <div class="audio-level-wrapper">
-                    <label>Gain Level</label>
                     <div class="level-bar">
                         <div id="levelIndicator" class="level-fill"></div>
                     </div>
@@ -51,65 +60,98 @@
 
             <section class="card operations-card">
                 <div class="card-header">
-                    <h2>Bağlantı Kontrolü</h2>
-                </div>
-                
-                <div class="input-group">
-                    <label for="userId">İstemci Kimliği (Client ID)</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="userId" placeholder="Sunucudan bekleniyor..." readonly autocomplete="off">
+                    <div class="header-title">
+                        <i class="ph ph-faders"></i>
+                        <h2>Kontrol Paneli</h2>
                     </div>
                 </div>
 
-                <div class="audio-actions">
-                    <button id="initAudioBtn" class="btn btn-primary">
-                        <span class="icon">🎙️</span> Sistemi Başlat
-                    </button>
-                    <button id="muteBtn" class="btn btn-secondary" disabled>
-                        <span class="icon">🔇</span> Sessize Al
-                    </button>
-                </div>
-
-                <hr class="divider">
-
-                <div class="input-group">
-                    <label for="peerId">Oda İsmi (Room ID)</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="peerId" placeholder="Örn: Toplanti1" autocomplete="off">
+                <div class="step-section">
+                    <span class="step-label">1. Adım: Cihaz</span>
+                    <div class="audio-actions">
+                        <button id="initAudioBtn" class="btn btn-primary">
+                            <i class="ph ph-microphone"></i>
+                            <span>Mikrofonu Aktifleştir</span>
+                        </button>
+                        <button id="muteBtn" class="btn btn-secondary" disabled>
+                            <i class="ph ph-microphone-slash"></i>
+                            <span>Sessize Al</span>
+                        </button>
                     </div>
                 </div>
 
-                <div class="call-actions">
-                    <button id="callBtn" class="btn btn-success" disabled>
-                        <span class="icon">🚪</span> Odaya Gir
-                    </button>
+                <div class="divider"></div>
+
+                <div class="step-section">
+                    <span class="step-label">2. Adım: Bağlantı</span>
                     
-                    <button id="hangupBtn" class="btn btn-danger" disabled>
-                        <span class="icon">📴</span> Ayrıl
-                    </button>
+                    <div class="input-group">
+                        <label for="peerId">Oda İsmi</label>
+                        <div class="input-wrapper">
+                            <i class="ph ph-hash input-icon"></i>
+                            <input type="text" id="peerId" placeholder="Örn: ToplantiOdasi1" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="roomPassword">Oda Şifresi <span class="optional-tag">(İsteğe Bağlı)</span></label>
+                        <div class="input-wrapper">
+                            <i class="ph ph-lock-key input-icon"></i>
+                            <input type="password" id="roomPassword" placeholder="Gizli oda için şifre giriniz" autocomplete="new-password">
+                        </div>
+                        <p class="input-hint">Şifre girerseniz, sadece şifreyi bilenler odaya katılabilir.</p>
+                    </div>
+
+                    <div class="call-actions">
+                        <button id="callBtn" class="btn btn-success" disabled>
+                            <i class="ph ph-sign-in"></i>
+                            <span>Odaya Katıl</span>
+                        </button>
+                        
+                        <button id="hangupBtn" class="btn btn-danger" disabled>
+                            <i class="ph ph-phone-disconnect"></i>
+                            <span>Ayrıl</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="client-id-footer">
+                    <span>ID:</span>
+                    <input type="text" id="userId" readonly>
                 </div>
             </section>
         </div>
 
         <section class="card log-card">
             <div class="card-header">
-                <h2>Sistem Logları</h2>
-                <button class="btn-xs" onclick="document.getElementById('logOutput').innerHTML=''">Temizle</button>
+                <div class="header-title">
+                    <i class="ph ph-list-dashes"></i>
+                    <h2>Aktivite Akışı</h2>
+                </div>
+                <button class="btn-icon-only" onclick="document.getElementById('logOutput').innerHTML=''" title="Temizle">
+                    <i class="ph ph-trash"></i>
+                </button>
             </div>
-            <div id="logOutput" class="terminal-view">
-                <div class="log-entry system">> Sistem hazır. Mikrofon izni bekleniyor...</div>
+            <div id="logOutput" class="activity-feed">
+                <div class="log-entry system">
+                    <i class="ph ph-info"></i>
+                    <div class="log-content">
+                        <span class="log-time">Sistem</span>
+                        <span class="log-msg">Hazır. Bağlantı bekleniyor...</span>
+                    </div>
+                </div>
             </div>
         </section>
 
     </main>
 
     <footer class="app-footer container">
-        <p>&copy; WebRTC Staj Projesi v2.1</p>
+        <p>WebRTC Staj Projesi V2.4 &copy; 2026</p>
     </footer>
 
-    <div id="audioContainer" style="position:fixed; bottom:10px; right:10px; z-index:9999;"></div>
+    <div id="audioContainer" style="position:absolute; opacity:0; pointer-events:none;"></div>
     
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="script.js?v=2.0"></script>
+    <script type="module" src="script.js?v=3.0"></script>
 </body>
 </html>

@@ -116,12 +116,12 @@ export class AudioManager {
             const { width, height } = this.canvas.getBoundingClientRect();
             
             // Temizle
-            this.canvasContext.fillStyle = '#f8fafc';
+            this.canvasContext.fillStyle = '#0f172a';
             this.canvasContext.fillRect(0, 0, width, height);
             
             // Dalga çiz
             this.canvasContext.lineWidth = 2;
-            this.canvasContext.strokeStyle = '#08ca76ff';
+            this.canvasContext.strokeStyle = '#a2b8afff';
             this.canvasContext.beginPath();
             
             const sliceWidth = width / bufferLength;
