@@ -89,7 +89,7 @@ function initializeManagers() {
 
     // --- Kullanıcı Olayları ---
     AppState.signalingManager.onUserConnected = async (newUserId) => {
-        log(`👤 Yeni kullanıcı geldi: ${newUserId}. Aranıyor...`, 'info');
+        log(`Yeni kullanıcı geldi: ${newUserId}. Aranıyor...`, 'info');
         
         // Onun için bir bağlantı oluştur (Initiator biziz)
         const pc = createPeerConnection(newUserId);
@@ -103,19 +103,35 @@ function initializeManagers() {
         }
     };
 
+    // --- KULLANICI AYRILDIĞINDA ---
     AppState.signalingManager.onUserDisconnected = (userId) => {
         log(`Kullanıcı ${userId} ayrıldı.`, 'warning');
+        
+        // 1. WebRTC Temizliği
         if (AppState.peers[userId]) {
             AppState.peers[userId].close();
             delete AppState.peers[userId];
         }
+        
+        // 2. Audio Temizliği
         const audioEl = document.getElementById(`audio_${userId}`);
         if (audioEl) audioEl.remove();
+
+        // 3. UI GÜNCELLEME (Manual Decrement)
+        // Sunucudan veri gelmesini beklemeden arayüzü anında güncelle
+        const countEl = document.getElementById('infoMemberCount');
+        if (countEl) {
+            let currentCount = parseInt(countEl.textContent) || 1;
+            // Sayı 1'den küçük olamaz
+            if (currentCount > 1) {
+                countEl.textContent = currentCount - 1;
+            }
+        }
     };
 
     // --- WebRTC Sinyalleşme ---
     AppState.signalingManager.onOffer = async (sdp, fromId) => {
-        log(`📥 ${fromId} teklif gönderdi.`, 'info');
+        log(`${fromId} teklif gönderdi.`, 'info');
         
         const pc = createPeerConnection(fromId);
         
@@ -160,18 +176,16 @@ function initializeManagers() {
 
     // --- Hata Yönetimi ---
     AppState.signalingManager.onWrongPassword = (data) => {
-        log(`🔐 Yanlış şifre: ${data.roomId}`, 'error');
+        log(`Yanlış şifre: ${data.roomId}`, 'error');
         alert(`Yanlış şifre! "${data.roomId}" odasına giriş yapılamadı.`);
         resetCallState();
     };
 
     AppState.signalingManager.onRoomFull = (data) => {
-        log(`⛔ Oda dolu: ${data.roomId}`, 'error');
+        log(`Oda dolu: ${data.roomId}`, 'error');
         alert(`Oda dolu! Maksimum kapasite aşıldı.`);
         resetCallState();
     };
-
-    // TEK SEFERDE BAĞLAN (Mükerrer çağrı kaldırıldı)
     AppState.signalingManager.connect();
 }
 
@@ -184,13 +198,13 @@ function attachEventListeners() {
         const result = await AppState.audioManager.initializeMicrophone();
         
         if (result.success) {
-            log('✅ Mikrofon Aktif', 'success');
+            log('Mikrofon Aktif', 'success');
             AppState.audioManager.setupVisualization(DOM.audioCanvas);
             DOM.initAudioBtn.textContent = 'Mikrofon Açık';
             DOM.muteBtn.disabled = false;
             DOM.callBtn.disabled = false;
         } else {
-            log(`❌ Mikrofon hatası: ${result.error}`, 'error');
+            log(`Mikrofon hatası: ${result.error}`, 'error');
             DOM.initAudioBtn.disabled = false;
         }
     });
@@ -201,11 +215,11 @@ function attachEventListeners() {
         const password = DOM.roomPassword.value.trim(); // ŞİFREYİ AL
 
         if (!roomId) {
-            log('⚠️ Lütfen Oda İsmi girin.', 'warning');
+            log('Lütfen Oda İsmi girin.', 'warning');
             return;
         }
         if (!AppState.audioManager.localStream) {
-            log('⚠️ Önce mikrofonu açın.', 'warning');
+            log('Önce mikrofonu açın.', 'warning');
             return;
         }
 
@@ -225,8 +239,11 @@ function attachEventListeners() {
     });
 
     // 3. Ayrıl
+    
     DOM.hangupBtn.addEventListener('click', () => {
-        handleLeaveRoom(); // Reload yerine fonksiyonu kullan
+        // En temiz çıkış yöntemi: Sayfayı yenilemek.
+        // Bu, socket'i koparır, mikrofonu kapatır, sayacı durdurur.
+        location.reload(); 
     });
 
     // 4. Mute
@@ -303,31 +320,108 @@ function processIceQueue(userId, pc) {
 // ============================================================================
 
 function createRoomInfoPanel() {
-    let panel = document.getElementById('roomInfoPanel');
-    if (!panel && DOM.operationsCard) {
-        panel = document.createElement('div');
+    if (document.getElementById('roomInfoPanel')) return;
+
+    const operationsCard = document.querySelector('.operations-card');
+    const footer = document.querySelector('.client-id-footer');
+
+    if (operationsCard && footer) {
+        const panel = document.createElement('div');
         panel.id = 'roomInfoPanel';
-        panel.style.marginTop = '15px';
-        panel.style.padding = '10px';
-        panel.style.background = 'rgba(0,0,0,0.1)';
-        panel.style.borderRadius = '8px';
-        panel.style.display = 'none';
-        DOM.operationsCard.appendChild(panel);
+        
+        // Temel Stil
+        Object.assign(panel.style, {
+            marginTop: '1rem',
+            marginBottom: '1rem',
+            padding: '0.8rem',
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid var(--primary-color)',
+            borderRadius: '8px',
+            display: 'none',
+            animation: 'slideIn 0.3s ease'
+        });
+
+        // HTML İskeleti
+        panel.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem; color:var(--text-main); font-weight:600;">
+                    <i class="ph ph-house-line" style="font-size:1.1rem; color:var(--primary-color);"></i>
+                    <span id="infoRoomName">--</span>
+                </div>
+                <div id="infoLockBadge" style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; padding:2px 6px; border-radius:4px;">
+                    <i id="infoLockIcon" class="ph"></i>
+                    <span id="infoLockText">--</span>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:1rem; font-size:0.8rem; color:var(--text-muted);">
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <i class="ph ph-users"></i>
+                    <span>Katılımcı: <strong id="infoMemberCount" style="color:var(--text-main);">1</strong></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.3rem;">
+                    <i class="ph ph-clock"></i>
+                    <span>Süre: <span id="sessionTimer">00:00</span></span>
+                </div>
+            </div>
+        `;
+
+        operationsCard.insertBefore(panel, footer);
     }
 }
 
 function updateRoomInfo(data) {
     const panel = document.getElementById('roomInfoPanel');
-    if (panel) {
-        const lockIcon = data.hasPassword ? '🔒' : '🔓';
-        panel.innerHTML = `
-            <div style="font-weight:bold; margin-bottom:5px;">Oda Bilgisi</div>
-            <div>İsim: ${data.roomId} ${lockIcon}</div>
-            <div>Katılımcı: ${data.memberCount || '?'}</div>
-        `;
-        panel.style.display = 'block';
+    if (!panel) return;
+
+    // Paneli görünür yap
+    panel.style.display = 'block';
+
+    // Verileri güncelle (HTML'i bozmadan sadece textleri değiştir)
+    document.getElementById('infoRoomName').textContent = data.roomId;
+    
+    // Üye sayısını güncelle
+    document.getElementById('infoMemberCount').textContent = data.memberCount || 1;
+
+    // Kilit durumu
+    const lockBadge = document.getElementById('infoLockBadge');
+    const lockIcon = document.getElementById('infoLockIcon');
+    const lockText = document.getElementById('infoLockText');
+
+    if (data.hasPassword) {
+        lockBadge.style.color = '#fbbf24';
+        lockBadge.style.border = '1px solid #fbbf24';
+        lockIcon.className = 'ph ph-lock-key';
+        lockText.textContent = 'Korumalı';
+    } else {
+        lockBadge.style.color = '#10b981';
+        lockBadge.style.border = '1px solid #10b981';
+        lockIcon.className = 'ph ph-lock-open';
+        lockText.textContent = 'Açık';
     }
+
+    // Sayaç çalışmıyorsa başlat
+    startSessionTimer();
 }
+
+let timerInterval;
+function startSessionTimer() {
+    // Eğer zaten çalışıyorsa tekrar başlatma (Böylece 00:00'a dönmez)
+    if (timerInterval) return;
+
+    let seconds = 0;
+    const timerEl = document.getElementById('sessionTimer');
+    
+    timerInterval = setInterval(() => {
+        seconds++;
+        const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const secs = (seconds % 60).toString().padStart(2, '0');
+        if(timerEl) timerEl.textContent = `${mins}:${secs}`;
+    }, 1000);
+}
+
+// Odadan ayrılınca sayacı durdurmak için resetCallState içine ekle:
+// clearInterval(timerInterval);
 
 function handleLeaveRoom() {
     log('Odadan ayrılınıyor...', 'info');
@@ -357,6 +451,14 @@ function resetCallState() {
     DOM.roomId.disabled = false;
     DOM.roomPassword.disabled = false;
     
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    const timerEl = document.getElementById('sessionTimer');
+    if (timerEl) timerEl.textContent = "00:00";
+    
+    // Paneli gizle
     const panel = document.getElementById('roomInfoPanel');
     if (panel) panel.style.display = 'none';
 }

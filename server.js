@@ -1,8 +1,7 @@
 /**
  * WebRTC VoIP Server - Room-Based Architecture
- * Turkcell VoIP Ekibi - Staj Projesi
- * * Oda tabanlı sinyalleşme sunucusu
- * Clean code ve modüler yapıyla geliştirilmiştir
+ * Oda tabanlı sinyalleşme sunucusu
+ * SHA-256 şifreleme ile güvenlik
  */
 
 const express = require('express');
@@ -20,7 +19,7 @@ const CONFIG = {
     CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
     MAX_ROOM_SIZE: 10, // Maksimum oda kapasitesi
     HEARTBEAT_INTERVAL: 30000, // 30 saniye
-    SALT: 'voip-secret-salt', // Virgül eklendi, hata buradaydı
+    SALT: 'voip-secret-salt', 
     SALT_ROUNDS: 'voip-secret-salt-2026' // hashPassword fonksiyonunda kullanılıyor
 };
 
@@ -320,8 +319,10 @@ function handleDisconnect(socket) {
         const room = ServerState.rooms.get(roomId);
         
         if (room) {
-            // Kullanıcıyı odadan çıkar
+            // 1. ÖNCE SİL
             room.members.delete(socket.id);
+            
+            // Ayrılan kişiyi diğerlerine bildir (Client'taki onUserDisconnected tetiklenir)
             socket.to(roomId).emit('user-disconnected', socket.id);
             
             // Oda boşaldıysa sil
@@ -331,6 +332,7 @@ function handleDisconnect(socket) {
                 if (room.passwordHash) ServerState.stats.secureRooms--;
                 logInfo(`Oda silindi: ${roomId}`);
             } else {
+                // 2. SONRA GÜNCEL SAYIYI DUYUR (Kalan kişi sayısını gönderir)
                 broadcastRoomInfo(roomId);
                 logWarning(`Kullanıcı ayrıldı: ${socket.id} | Oda: ${roomId} (${room.members.size} kişi kaldı)`);
             }
@@ -340,7 +342,6 @@ function handleDisconnect(socket) {
     }
     
     ServerState.stats.activeConnections--;
-    logWarning(`Bağlantı koptu: ${socket.id}`);
 }
 
 /**
