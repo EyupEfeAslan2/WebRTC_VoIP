@@ -1,5 +1,6 @@
 /**
  * AudioManager - Mikrofon ve ses akışı yönetimi
+ * V3.0 İtibariyle Görüntüye erişim.
  */
 
 export class AudioManager {
@@ -36,7 +37,11 @@ export class AudioManager {
                 sampleRate: 48000,
                 sampleSize: 16
                 },
-                video: false
+                video: {
+                    width: { ideal: 640 },  // Piksel sayısı eni
+                    height: { ideal: 480 }, // Piksel sayısı boyu
+                    facingMode: "user"      // Ön kamera (Mobilde sadece ön)
+                    }
             };
 
             // Mikrofon erişimi

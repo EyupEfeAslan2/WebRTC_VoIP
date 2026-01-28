@@ -207,19 +207,18 @@ body {
 }
 
 .canvas-wrapper {
-    background: #020617; /* Simsiyah yerine çok koyu lacivert (Derinlik için) */
-    height: 120px;       /* Sabit yükseklik verelim ki oynamasın */
+    background: #020617; 
     width: 100%;
     position: relative;
     border-bottom: 1px solid var(--border-color);
     border-radius: 8px; /* Köşeleri yumuşat */
-    overflow: hidden;   /* Dışarı taşanları kes (Kritik nokta) */
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.5); /* Ekranın içine gömülü hissi */
+    overflow: hidden;   /* Dışarı taşanları kes */
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 
 #audioCanvas { 
     width: 100%; 
-    height: 100%; /* 110% yerine 100% yaparak taşmayı engelledik */
+    height: 100%; 
     display: block;
 }
 
@@ -470,4 +469,74 @@ input::placeholder { color: #475569; }
     padding: 1rem;
     border-top: 1px solid var(--border-color);
     background: var(--surface-color);
+}
+/* --- Video Grid Area --- */
+.video-card {
+    margin-top: 1.0rem; /* Üstteki kartla mesafe */
+    min-height: 300px;
+    background: #0f172a; /* Video arkaplanı daha koyu olsun */
+    overflow: hidden;
+}
+
+.video-grid {
+    padding: 1rem;
+    display: grid;
+    /* Otomatik sığdır: En az 200px genişlik, sığmazsa alt satıra geç */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    gap: 1rem;
+    height: 100%;
+}
+
+.video-wrapper {
+    position: relative;
+    background: #1e293b;
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9; /* Standart video oranı */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+/* Yerel video (Ayna efekti) */
+.video-wrapper.local video {
+    transform: scaleX(-1); /* Aynalama */
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Kutuyu doldur, taşanları kes */
+    background: #000;
+}
+
+/* Video üzerindeki isim etiketi */
+.video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    pointer-events: none;
+}
+
+/* Konuşurken parlasın (İleride JS ile tetikleyeceğiz) */
+.speaking {
+    border: 2px solid var(--success-color);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+/* Kamera kapalıyken gösterilecek avatar (Opsiyonel) */
+.video-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: #334155;
+    color: #94a3b8;
+    font-size: 3rem;
 }

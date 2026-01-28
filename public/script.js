@@ -38,7 +38,6 @@ const DOM = {
     logOutput: document.getElementById('logOutput'),
     audioCanvas: document.getElementById('audioCanvas'),
     audioContainer: document.getElementById('audioContainer'),
-    // roomInfoPanel dinamik oluşturulacak veya HTML'de varsa buraya eklenebilir
     operationsCard: document.querySelector('.operations-card')
 };
 
@@ -84,7 +83,6 @@ function initializeManagers() {
 
     AppState.signalingManager.onRoomInfoUpdate = (data) => {
         updateRoomInfo(data);
-        // log(`Oda bilgisi güncellendi: ${data.memberCount} kişi`, 'info'); // Çok spam olmasın diye kapattım
     };
 
     // --- Kullanıcı Olayları ---
@@ -199,6 +197,10 @@ function attachEventListeners() {
         
         if (result.success) {
             log('Mikrofon Aktif', 'success');
+
+            const localVideo = document.getElementById('localVideo');
+            localVideo.srcObject = AppState.audioManager.localStream; // Hem ses hem görüntü var artık
+
             AppState.audioManager.setupVisualization(DOM.audioCanvas);
             DOM.initAudioBtn.textContent = 'Mikrofon Açık';
             DOM.muteBtn.disabled = false;
@@ -239,10 +241,7 @@ function attachEventListeners() {
     });
 
     // 3. Ayrıl
-    
     DOM.hangupBtn.addEventListener('click', () => {
-        // En temiz çıkış yöntemi: Sayfayı yenilemek.
-        // Bu, socket'i koparır, mikrofonu kapatır, sayacı durdurur.
         location.reload(); 
     });
 
@@ -282,8 +281,27 @@ function createPeerConnection(targetUserId) {
 
     // B. Ses Geldiğinde
     pc.ontrack = (event) => {
-        log(`🎵 Ses alındı: ${targetUserId}`, 'success');
+        const stream = event.streams[0];
+        const trackKind = event.track.kind; // 'audio' veya 'video'
         
+        if(trackKind === 'video') {
+            log(`Görüntü alındı: ${targetUserId}`, 'success');
+            let videoEl = document.getElementById(`video_${targetUserId}`);
+            if (!videoEl) {
+                videoEl = document.createElement('video');
+                videoEl.id = `video_${targetUserId}`;
+                videoEl.autoplay = true;
+                videoEl.muted = true; // Geri bildirim önleme
+                videoEl.style.width = '150px';
+                videoEl.style.height = 'auto';
+                videoEl.style.margin = '5px';
+                DOM.audioContainer.appendChild(videoEl);
+            }
+            videoEl.srcObject = stream;
+            return; // Video işleme tamamlandı
+        }
+        else{
+        log(`Ses alındı: ${targetUserId}`, 'success');
         let audioEl = document.getElementById(`audio_${targetUserId}`);
         if (!audioEl) {
             audioEl = document.createElement('audio');
@@ -292,6 +310,7 @@ function createPeerConnection(targetUserId) {
             DOM.audioContainer.appendChild(audioEl);
         }
         audioEl.srcObject = event.streams[0];
+    }
     };
 
     // C. Yerel Sesi Ekle
