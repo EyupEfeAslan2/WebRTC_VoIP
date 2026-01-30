@@ -7,7 +7,7 @@
     <meta name="description" content="Turkcell VoIP İletişim Protokolü">
     <title>WebRTC Staj</title>
     
-    <link rel="stylesheet" href="style.css?v=3.0">
+    <link rel="stylesheet" href="style.css">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -15,8 +15,6 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
-
-    <div class="app-background"></div>
 
     <header class="app-header">
         <div class="header-content container">
@@ -35,8 +33,10 @@
 
     <main class="app-main container">
         
-        <div class="control-grid">
+        <!-- SOL KOLON: Kontroller -->
+        <div class="control-column">
             
+            <!-- Ses Analizi -->
             <section class="card viz-card">
                 <div class="card-header">
                     <div class="header-title">
@@ -54,29 +54,8 @@
                     </div>
                 </div>
             </section>
-            <section class="card video-card">
-                <div class="card-header">
-                    <div class="header-title">
-                        <i class="ph ph-video-camera"></i>
-                        <h2>Görüntü Paneli</h2>
-                    </div>
-                    <div class="video-controls">
-                        <button id="toggleCamBtn" class="btn-icon-only" title="Kamerayı Aç/Kapat" disabled>
-                            <i class="ph ph-video-camera-slash"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="video-grid" id="videoGrid">
-                    <div class="video-wrapper local">
-                        <video id="localVideo" autoplay playsinline muted></video>
-                        <span class="video-label">Siz</span>
-                        <div class="video-status-icon"><i class="ph ph-microphone-slash"></i></div>
-                    </div>
-                    
-                    </div>
-            </section>
 
+            <!-- Kontrol Paneli -->
             <section class="card operations-card">
                 <div class="card-header">
                     <div class="header-title">
@@ -86,17 +65,11 @@
                 </div>
 
                 <div class="step-section">
-                    <span class="step-label">1. Adım: Cihaz</span>
-                    <div class="audio-actions">
-                        <button id="initAudioBtn" class="btn btn-primary">
-                            <i class="ph ph-microphone"></i>
-                            <span>Mikrofonu Aktifleştir</span>
-                        </button>
-                        <button id="muteBtn" class="btn btn-secondary" disabled>
-                            <i class="ph ph-microphone-slash"></i>
-                            <span>Sessize Al</span>
-                        </button>
-                    </div>
+                    <span class="step-label">1. Adım: Sistem</span>
+                    <button id="initAudioBtn" class="btn btn-primary btn-block">
+                        <i class="ph ph-power"></i>
+                        <span>Sistemi Başlat</span>
+                    </button>
                 </div>
 
                 <div class="divider"></div>
@@ -118,7 +91,6 @@
                             <i class="ph ph-lock-key input-icon"></i>
                             <input type="password" id="roomPassword" placeholder="Gizli oda için şifre giriniz" autocomplete="new-password">
                         </div>
-                        <p class="input-hint">Şifre girerseniz, sadece şifreyi bilenler odaya katılabilir.</p>
                     </div>
 
                     <div class="call-actions">
@@ -139,38 +111,102 @@
                     <input type="text" id="userId" readonly>
                 </div>
             </section>
+
+            <!-- Aktivite -->
+            <section class="card activity-card">
+                <div class="card-header">
+                    <div class="header-title">
+                        <i class="ph ph-list-dashes"></i>
+                        <h2>Aktivite</h2>
+                    </div>
+                    <button class="btn-icon-only" onclick="document.getElementById('logOutput').innerHTML=''" title="Temizle">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+                <div id="logOutput" class="activity-feed"></div>
+            </section>
         </div>
 
-        <section class="card log-card">
-            <div class="card-header">
-                <div class="header-title">
-                    <i class="ph ph-list-dashes"></i>
-                    <h2>Aktivite Akışı</h2>
-                </div>
-                <button class="btn-icon-only" onclick="document.getElementById('logOutput').innerHTML=''" title="Temizle">
-                    <i class="ph ph-trash"></i>
-                </button>
-            </div>
-            <div id="logOutput" class="activity-feed">
-                <div class="log-entry system">
-                    <i class="ph ph-info"></i>
-                    <div class="log-content">
-                        <span class="log-time">Sistem</span>
-                        <span class="log-msg">Hazır. Bağlantı bekleniyor...</span>
+        <!-- ORTA KOLON: Video Grid -->
+        <div class="video-column">
+            <section class="card video-card">
+                <div class="card-header">
+                    <div class="header-title">
+                        <i class="ph ph-video-camera"></i>
+                        <h2>Görüntü Paneli</h2>
                     </div>
                 </div>
-            </div>
-        </section>
+                
+                <div class="video-grid" id="videoGrid">
+                    <!-- Yerel video -->
+                    <div class="video-wrapper local" id="localVideoWrapper">
+                        <video id="localVideo" autoplay playsinline muted></video>
+                        <div class="video-overlay">
+                            <span class="video-label">Siz</span>
+                            <div class="video-status-icon" id="localMicStatus">
+                                <i class="ph ph-microphone-slash"></i>
+                            </div>
+                        </div>
+                        <div class="no-video-placeholder">
+                            <i class="ph ph-user"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Remote videolar buraya dinamik eklenecek -->
+                </div>
+                
+                <!-- Video Kontrol Butonları -->
+                <div class="video-controls">
+                    <button id="screenShareBtn" class="btn-control" disabled title="Ekran Paylaş">
+                        <i class="ph ph-monitor"></i>
+                    </button>
+                    <button id="micToggleBtn" class="btn-control btn-control-danger" disabled title="Mikrofon">
+                        <i class="ph ph-microphone"></i>
+                    </button>
+                    <button id="cameraToggleBtn" class="btn-control" disabled title="Kamera">
+                        <i class="ph ph-video-camera-slash"></i>
+                    </button>
+                    <button id="chatToggleBtn" class="btn-control" title="Sohbet">
+                        <i class="ph ph-chat-circle-dots"></i>
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- SAĞ KOLON: Chat Paneli -->
+        <div class="chat-column" id="chatColumn">
+            <section class="card chat-card">
+                <div class="card-header">
+                    <div class="header-title">
+                        <i class="ph ph-chat-circle-dots"></i>
+                        <h2>Sohbet</h2>
+                    </div>
+                    <button class="btn-icon-only" id="closeChatBtn">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-empty">
+                        <i class="ph ph-chat-centered-text"></i>
+                        <p>Henüz mesaj yok</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-wrapper">
+                    <input type="text" id="chatInput" placeholder="Mesaj yazın..." autocomplete="off">
+                    <button id="sendMessageBtn" class="btn-send">
+                        <i class="ph ph-paper-plane-tilt"></i>
+                    </button>
+                </div>
+            </section>
+        </div>
 
     </main>
-
-    <footer class="app-footer container">
-        <p>WebRTC Staj Projesi V2.4.1 &copy; 2026</p>
-    </footer>
 
     <div id="audioContainer" style="position:absolute; opacity:0; pointer-events:none;"></div>
     
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="script.js?v=3.0"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -1,34 +1,29 @@
-/* --- Modern Dark Variables (Lacivert/Siyah Tonlar) --- */
+/* --- Modern Dark Variables --- */
 :root {
-    /* Ana Renk Paleti */
-    --bg-color: #0b1120;        /* En koyu gece mavisi (Arkaplan) */
-    --surface-color: #1e293b;   /* Koyu slate mavisi (Kartlar) */
-    --surface-hover: #2a3852;   /* Hover durumunda biraz daha açık */
+    --bg-color: #0b1120;
+    --surface-color: #1e293b;
+    --surface-hover: #2a3852;
     
-    /* Aksesuar Renkler (Koyu temada patlayan tonlar) */
-    --primary-color: #3b82f6;   /* Parlak Mavi */
-    --primary-hover: #60a5fa;   /* Daha parlak hover */
+    --primary-color: #3b82f6;
+    --primary-hover: #60a5fa;
     
-    --secondary-color: #94a3b8; /* Açık Gri (İkonlar vs.) */
+    --secondary-color: #94a3b8;
     --secondary-hover: #cbd5e1;
     
-    --success-color: #10b981;   /* Zümrüt Yeşili */
+    --success-color: #10b981;
     --success-hover: #34d399;
     
-    --danger-color: #ef4444;    /* Kırmızı */
+    --danger-color: #ef4444;
     --danger-hover: #f87171;
 
-    /* Metin Renkleri (Açık tonlar) */
-    --text-main: #f1f5f9;       /* Neredeyse Beyaz */
-    --text-muted: #94a3b8;      /* Orta Gri */
-    --border-color: #334155;    /* Koyu Mavi Çerçeveler */
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border-color: #334155;
     
-    /* Koyu mod için özel input arkaplanı */
     --input-bg: #0f172a;
 
     --radius-lg: 16px;
     --radius-md: 10px;
-    /* Gölgeleri koyu temaya uygun hale getirdik (daha siyah) */
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.2);
 
@@ -36,12 +31,10 @@
     --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Reset */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
     background-color: var(--bg-color);
-    /* Hafif bir gradyan ekleyerek derinlik katalım */
     background-image: radial-gradient(circle at top right, #1e293b 0%, #0b1120 100%);
     color: var(--text-main);
     font-family: var(--font-main);
@@ -59,31 +52,13 @@ body {
     padding: 0.75rem 0;
     box-shadow: var(--shadow-sm);
     z-index: 10;
+    flex-shrink: 0;
 }
 
 .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.logo-box {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, var(--primary-color), #2563eb);
-    color: white;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); /* Hafif mavi neon etkisi */
 }
 
 .brand-text h1 {
@@ -93,19 +68,11 @@ body {
     letter-spacing: -0.5px;
 }
 
-.brand-text .subtitle {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    font-weight: 500;
-    display: block;
-}
-
-/* Status Badge (Koyu mod uyumlu) */
 .connection-status {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(0, 0, 0, 0.2); /* Yarı saydam siyah */
+    background: rgba(0, 0, 0, 0.2);
     padding: 0.4rem 0.8rem;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -121,12 +88,14 @@ body {
     transition: background-color 0.3s;
 }
 
-.connected .status-dot { background-color: var(--success-color); box-shadow: 0 0 8px var(--success-color); }
-.disconnected .status-dot { background-color: var(--danger-color); box-shadow: 0 0 8px var(--danger-color); }
+.status-dot.connected { 
+    background-color: var(--success-color); 
+    box-shadow: 0 0 8px var(--success-color); 
+}
 
-/* --- Layout --- */
+/* --- 3 Column Layout --- */
 .container {
-    max-width: 1100px;
+    max-width: 1600px;
     width: 100%;
     margin: 0 auto;
     padding: 0 1.5rem;
@@ -135,22 +104,45 @@ body {
 .app-main {
     flex: 1;
     display: grid;
-    grid-template-columns: 380px 1fr;
+    grid-template-columns: 340px 1fr 320px;
     gap: 1.5rem;
-    padding-top: 2rem;
-    padding-bottom: 1rem;
+    padding: 1rem 0;
     overflow: hidden;
 }
 
-.control-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    overflow-y: auto;
-    padding-right: 5px;
+/* Chat kapalıyken 2 kolon */
+.app-main.chat-closed {
+    grid-template-columns: 340px 1fr;
 }
 
-/* --- Cards (Koyu Lacivert) --- */
+.app-main.chat-closed .chat-column {
+    display: none;
+}
+
+/* Sol Kolon */
+.control-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+/* Orta Kolon */
+.video-column {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Sağ Kolon */
+.chat-column {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- Cards --- */
 .card {
     background: var(--surface-color);
     border-radius: var(--radius-lg);
@@ -158,16 +150,18 @@ body {
     box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
 }
 
 .card-header {
-    padding: 1rem 1.25rem;
+    padding: 0.9rem 1.2rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(0, 0, 0, 0.15); /* Kart renginden biraz daha koyu başlık */
+    background: rgba(0, 0, 0, 0.15);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    flex-shrink: 0;
 }
 
 .header-title {
@@ -178,12 +172,12 @@ body {
 }
 
 .header-title i {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: var(--primary-color);
 }
 
 .card-header h2 {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
 }
 
@@ -194,25 +188,26 @@ body {
     font-weight: 600;
     text-transform: uppercase;
 }
+
 .live-badge {
-    /* Koyu modda parlayan yeşil badge */
     background: rgba(16, 185, 129, 0.1);
     color: var(--success-color);
     border: 1px solid var(--success-color);
 }
 
-/* --- Viz Card (Görselleştirme Alanı) --- */
+/* --- Ses Analizi (Normal Boyut) --- */
 .viz-card { 
-    padding-bottom: 1rem; 
+    padding-bottom: 0.8rem;
 }
 
 .canvas-wrapper {
-    background: #020617; 
+    background: #020617;
     width: 100%;
+    height: 100px; /* Eski boyut */
     position: relative;
     border-bottom: 1px solid var(--border-color);
-    border-radius: 8px; /* Köşeleri yumuşat */
-    overflow: hidden;   /* Dışarı taşanları kes */
+    border-radius: 8px;
+    overflow: hidden;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 
@@ -223,73 +218,65 @@ body {
 }
 
 .audio-level-wrapper { 
-    padding: 0.8rem 1.25rem 0.5rem 1.25rem; /* Üstten biraz boşluk */
+    padding: 0.6rem 1.2rem;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-}
-
-.audio-level-wrapper label {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    gap: 4px;
 }
 
 .level-bar { 
-    height: 6px; 
-    background: rgba(255, 255, 255, 0.1); /* Çok silik bir iz */
+    height: 5px;
+    background: rgba(255, 255, 255, 0.1);
     width: 100%; 
-    border-radius: 10px; /* Hap şeklinde yuvarlak kenarlar */
+    border-radius: 10px;
     overflow: hidden;
 }
 
 .level-fill { 
     height: 100%; 
     width: 0%; 
-    /* Düz renk yerine degrade (Yeşilden Maviye) */
     background: linear-gradient(90deg, var(--success-color), var(--primary-color));
-    /* Geçişi yumuşat: linear yerine ease-out */
     transition: width 0.15s ease-out; 
-    box-shadow: 0 0 8px var(--success-color); /* Hafif neon parlama */
+    box-shadow: 0 0 8px var(--success-color);
     border-radius: 10px;
 }
 
-/* --- Operations Card --- */
-.operations-card { padding-bottom: 1.5rem; }
+/* --- Kontrol Paneli --- */
+.operations-card { 
+    padding-bottom: 1rem;
+}
 
 .step-section {
-    padding: 1.25rem;
+    padding: 1rem 1.2rem;
 }
 
 .step-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    color: var(--primary-color); /* Etiketleri mavi yaptık */
+    color: var(--primary-color);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.6rem;
 }
 
 .divider {
     height: 1px;
     background: var(--border-color);
-    margin: 0 1.25rem;
+    margin: 0 1.2rem;
 }
 
-/* Inputs (Koyu Zeminli) */
-.input-group { margin-bottom: 1rem; }
+/* Inputs */
+.input-group { margin-bottom: 0.8rem; }
 .input-group label {
     display: flex;
     justify-content: space-between;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     margin-bottom: 0.4rem;
     color: var(--text-main);
 }
-.optional-tag { color: var(--text-muted); font-weight: 400; font-size: 0.75rem; }
+.optional-tag { color: var(--text-muted); font-weight: 400; font-size: 0.7rem; }
 
 .input-wrapper {
     position: relative;
@@ -301,16 +288,16 @@ body {
     position: absolute;
     left: 12px;
     color: var(--text-muted);
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 input[type="text"], input[type="password"] {
     width: 100%;
-    padding: 0.7rem 0.7rem 0.7rem 2.4rem;
+    padding: 0.65rem 0.65rem 0.65rem 2.3rem;
     border: 1px solid var(--border-color);
-    background-color: var(--input-bg); /* Koyu arkaplan */
+    background-color: var(--input-bg);
     border-radius: var(--radius-md);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-main);
     transition: all 0.2s;
     font-family: var(--font-main);
@@ -318,41 +305,38 @@ input[type="text"], input[type="password"] {
 
 input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Mavi parlama */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     outline: none;
 }
 input::placeholder { color: #475569; }
 
-.input-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 0.4rem;
-    line-height: 1.3;
-}
-
-/* Buttons (Koyu modda daha canlı) */
-.audio-actions, .call-actions {
+/* Buttons */
+.call-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: 0.7rem;
 }
 
 .btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
+    gap: 0.4rem;
+    padding: 0.7rem 0.6rem;
     border-radius: var(--radius-md);
     border: none;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     font-family: var(--font-main);
 }
 
-.btn i { font-size: 1.2rem; }
+.btn-block {
+    width: 100%;
+}
+
+.btn i { font-size: 1.1rem; }
 
 .btn:disabled {
     opacity: 0.5;
@@ -360,42 +344,43 @@ input::placeholder { color: #475569; }
     filter: grayscale(1);
 }
 
-.btn-primary { background: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }
-.btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
-
-/* Secondary buton artık şeffaf ve çerçeveli */
-.btn-secondary { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
-.btn-secondary:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--text-muted); }
-
-.btn-success { background: var(--success-color); color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
-.btn-success:hover:not(:disabled) { background: var(--success-hover); transform: translateY(-1px); }
-
-/* Danger buton koyu modda transparan kırmızı */
-.btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); border: 1px solid var(--danger-color); }
-.btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); }
-
-.client-id-footer {
-    margin-top: 1rem;
-    padding: 0 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
+.btn-primary { 
+    background: var(--primary-color); 
+    color: white; 
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); 
 }
-.client-id-footer input {
-    background: transparent;
-    border: none;
-    font-family: var(--font-mono);
-    color: var(--text-muted);
-    width: 100%;
-    padding: 0;
+.btn-primary:hover:not(:disabled) { 
+    background: var(--primary-hover); 
+    transform: translateY(-1px); 
 }
 
-/* --- Activity Feed (Koyu Log Ekranı) --- */
-.log-card {
-    height: 100%;
-    overflow: hidden;
+.btn-secondary { 
+    background: transparent; 
+    border: 1px solid var(--border-color); 
+    color: var(--text-main); 
+}
+.btn-secondary:hover:not(:disabled) { 
+    background: var(--surface-hover); 
+    border-color: var(--text-muted); 
+}
+
+.btn-success { 
+    background: var(--success-color); 
+    color: white; 
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); 
+}
+.btn-success:hover:not(:disabled) { 
+    background: var(--success-hover); 
+    transform: translateY(-1px); 
+}
+
+.btn-danger { 
+    background: rgba(239, 68, 68, 0.1); 
+    color: var(--danger-color); 
+    border: 1px solid var(--danger-color); 
+}
+.btn-danger:hover:not(:disabled) { 
+    background: rgba(239, 68, 68, 0.2); 
 }
 
 .btn-icon-only {
@@ -405,138 +390,431 @@ input::placeholder { color: #475569; }
     cursor: pointer;
     padding: 5px;
     border-radius: 5px;
+    transition: all 0.2s;
 }
-.btn-icon-only:hover { background: rgba(255,255,255,0.1); color: var(--text-main); }
+.btn-icon-only:hover:not(:disabled) { 
+    background: rgba(255,255,255,0.1); 
+    color: var(--text-main); 
+}
 
-.activity-feed {
+.client-id-footer {
+    margin-top: 0.8rem;
+    padding: 0 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+.client-id-footer input {
+    background: transparent;
+    border: none;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    width: 100%;
+    padding: 0;
+    font-size: 0.7rem;
+}
+
+/* --- Video Card --- */
+.video-card {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.video-grid {
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* 1 kişi */
+.video-grid.peers-1 {
+    grid-template-columns: 1fr;
+}
+
+/* 2 kişi */
+.video-grid.peers-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 3-4 kişi */
+.video-grid.peers-3,
+.video-grid.peers-4 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 5+ kişi */
+.video-grid.peers-5,
+.video-grid.peers-6 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.video-wrapper {
+    position: relative;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+/* SPEAKING EFFECT - Konuşunca parlayan çerçeve */
+.video-wrapper.speaking {
+    border-color: var(--success-color);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6),
+                0 0 40px rgba(16, 185, 129, 0.4),
+                0 4px 6px rgba(0,0,0,0.3);
+    animation: glowPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.6),
+                    0 0 40px rgba(16, 185, 129, 0.4);
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(16, 185, 129, 0.8),
+                    0 0 60px rgba(16, 185, 129, 0.6);
+    }
+}
+
+.video-wrapper.local video {
+    transform: scaleX(-1);
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+}
+
+.video-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.video-status-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 6px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-status-icon i {
+    font-size: 1.1rem;
+}
+
+/* Kamera kapalı placeholder */
+.no-video-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: var(--text-muted);
+    font-size: 4rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.video-wrapper.cam-off .no-video-placeholder {
+    opacity: 1;
+}
+
+.video-wrapper.cam-off video {
+    opacity: 0;
+}
+
+/* --- Video Kontrol Butonları --- */
+.video-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.15);
+    border-top: 1px solid var(--border-color);
+}
+
+.btn-control {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-hover);
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 1.4rem;
+}
+
+.btn-control:hover:not(:disabled) {
+    background: var(--border-light);
+    transform: scale(1.1);
+}
+
+.btn-control:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-control.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-control-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-control-danger:hover:not(:disabled) {
+    background: var(--danger-hover);
+}
+
+/* --- Chat Panel --- */
+.chat-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
-    /* Karttan daha koyu bir iç zemin */
     background: #111827;
     display: flex;
     flex-direction: column;
+    gap: 0.75rem;
+}
+
+.chat-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
     gap: 0.5rem;
+}
+
+.chat-empty i {
+    font-size: 3rem;
+    opacity: 0.3;
+}
+
+.chat-message {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: slideUp 0.3s ease;
+}
+
+.chat-message.own {
+    align-items: flex-end;
+}
+
+.message-sender {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.message-bubble {
+    max-width: 80%;
+    padding: 0.6rem 0.9rem;
+    border-radius: 12px;
+    background: var(--surface-color);
+    color: var(--text-main);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.chat-message.own .message-bubble {
+    background: var(--primary-color);
+    color: white;
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-top: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+#chatInput {
+    flex: 1;
+    padding: 0.7rem;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-size: 0.85rem;
+}
+
+.btn-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-send:hover {
+    background: var(--primary-hover);
+    transform: scale(1.1);
+}
+
+/* --- Aktivite --- */
+.activity-card {
+    flex-shrink: 0;
+    max-height: 200px;
+}
+
+.activity-feed {
+    overflow-y: auto;
+    padding: 0.8rem;
+    background: #111827;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    max-height: 150px;
 }
 
 .log-entry {
     display: flex;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    /* Kart rengiyle aynı */
+    gap: 0.6rem;
+    padding: 0.6rem;
     background: var(--surface-color);
-    border-radius: var(--radius-md);
+    border-radius: 8px;
     border: 1px solid var(--border-color);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     align-items: flex-start;
-    animation: slideIn 0.2s ease;
+    animation: slideUp 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes slideUp {
+    from { 
+        opacity: 0; 
+        transform: translateY(15px) scale(0.95); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+    }
 }
 
 .log-entry i {
-    font-size: 1.1rem;
+    font-size: 1rem;
     margin-top: 2px;
+    flex-shrink: 0;
 }
 
 .log-content {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .log-time {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     font-weight: 500;
 }
-.log-msg { color: var(--text-main); line-height: 1.4; }
+.log-msg { 
+    color: var(--text-main); 
+    line-height: 1.3;
+    word-wrap: break-word;
+}
 
-/* Log Tipleri (Renkli İkonlar) */
+/* Log Tipleri */
 .info i { color: var(--primary-color); }
 .success i { color: var(--success-color); }
 .warning i { color: #f59e0b; }
 .error i { color: var(--danger-color); }
 .system i { color: var(--secondary-color); }
 
-/* --- Footer --- */
-.app-footer {
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    padding: 1rem;
-    border-top: 1px solid var(--border-color);
-    background: var(--surface-color);
-}
-/* --- Video Grid Area --- */
-.video-card {
-    margin-top: 1.0rem; /* Üstteki kartla mesafe */
-    min-height: 300px;
-    background: #0f172a; /* Video arkaplanı daha koyu olsun */
-    overflow: hidden;
+/* Scrollbar */
+.control-column::-webkit-scrollbar,
+.video-grid::-webkit-scrollbar,
+.activity-feed::-webkit-scrollbar,
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
 }
 
-.video-grid {
-    padding: 1rem;
-    display: grid;
-    /* Otomatik sığdır: En az 200px genişlik, sığmazsa alt satıra geç */
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-    gap: 1rem;
-    height: 100%;
+.control-column::-webkit-scrollbar-track,
+.video-grid::-webkit-scrollbar-track,
+.activity-feed::-webkit-scrollbar-track,
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
 }
 
-.video-wrapper {
-    position: relative;
-    background: #1e293b;
-    border-radius: 12px;
-    overflow: hidden;
-    aspect-ratio: 16 / 9; /* Standart video oranı */
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s ease;
+.control-column::-webkit-scrollbar-thumb,
+.video-grid::-webkit-scrollbar-thumb,
+.activity-feed::-webkit-scrollbar-thumb,
+.chat-messages::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
 }
 
-/* Yerel video (Ayna efekti) */
-.video-wrapper.local video {
-    transform: scaleX(-1); /* Aynalama */
-}
-
-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* Kutuyu doldur, taşanları kes */
-    background: #000;
-}
-
-/* Video üzerindeki isim etiketi */
-.video-label {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    pointer-events: none;
-}
-
-/* Konuşurken parlasın (İleride JS ile tetikleyeceğiz) */
-.speaking {
-    border: 2px solid var(--success-color);
-    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
-}
-
-/* Kamera kapalıyken gösterilecek avatar (Opsiyonel) */
-.video-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    background: #334155;
-    color: #94a3b8;
-    font-size: 3rem;
+/* Responsive */
+@media (max-width: 1200px) {
+    .app-main {
+        grid-template-columns: 320px 1fr;
+    }
+    
+    .chat-column {
+        position: fixed;
+        right: 0;
+        top: 60px;
+        bottom: 0;
+        width: 320px;
+        z-index: 100;
+        background: var(--bg-color);
+        padding: 1rem;
+    }
 }
